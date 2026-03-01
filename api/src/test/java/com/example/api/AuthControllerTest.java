@@ -1,6 +1,8 @@
 package com.example.api;
 
 import com.example.api.auth.application.AuthUseCase;
+import com.example.api.auth.application.dto.LoginRequestDto;
+import com.example.api.auth.application.dto.LoginResponseDto;
 import com.example.api.auth.application.dto.RegisterRequestDto;
 import com.example.api.auth.presentation.AuthController;
 import org.junit.jupiter.api.Test;
@@ -59,5 +61,27 @@ class AuthControllerTest {
 
         // THEN
         verify(authUseCase, times(1)).register(requestDto);
+    }
+
+    @Test
+    void should_login_and_return_token_with_bearer_type() {
+
+        // GIVEN
+        LoginRequestDto requestDto = new LoginRequestDto(
+                "alice.smith@company.com",
+                "Password123!@#"
+        );
+        LoginResponseDto expectedResponse = new LoginResponseDto("jwt-token", "Bearer");
+        when(authUseCase.login(requestDto)).thenReturn(expectedResponse);
+
+        // WHEN
+        ResponseEntity<LoginResponseDto> response = authController.login(requestDto);
+
+        // THEN
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().accessToken()).isEqualTo("jwt-token");
+        assertThat(response.getBody().type()).isEqualTo("Bearer");
+        verify(authUseCase).login(requestDto);
     }
 }
