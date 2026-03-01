@@ -1,11 +1,15 @@
 package com.example.api;
 
 import com.example.api.auth.application.AuthUseCase;
+import com.example.api.auth.application.dto.LoginRequestDto;
+import com.example.api.auth.application.dto.LoginResponseDto;
 import com.example.api.auth.application.dto.RegisterRequestDto;
+import com.example.api.shared.exception.ConflictException;
+import com.example.api.shared.exception.UnauthorizedException;
+import com.example.api.shared.security.JwtService;
 import com.example.api.user.domain.Role;
 import com.example.api.user.domain.User;
 import com.example.api.user.domain.UserRepositoryPort;
-import com.example.api.shared.exception.ConflictException;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,10 +20,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.assertj.core.api.Assertions.*;
 
@@ -31,6 +37,9 @@ class AuthUseCaseTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private JwtService jwtService;
 
     @InjectMocks
     private AuthUseCase authUseCase;
@@ -87,5 +96,87 @@ class AuthUseCaseTest {
                 .hasMessage("Email déjà utilisé");
 
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void should_return_token_when_credentials_ok() {
+
+        // GIVEN
+        LoginRequestDto requestDto = new LoginRequestDto(
+                "alice.smith@company.com",
+                "Password123!@#"
+        );
+
+        User user = User.builder()
+                .id(1L)
+                .email("alice.smith@company.com")
+                .password("hashed-password")
+                .role(Role.COLLABORATOR)
+                .build();
+
+        when(userRepository.findByEmail("alice.smith@company.com"))
+                .thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(requestDto.password(), user.getPassword()))
+                .thenReturn(true);
+        when(jwtService.generateToken(user.getEmail(), List.of(Role.COLLABORATOR)))
+                .thenReturn("jwt-access-token");
+
+        // WHEN
+        LoginResponseDto result = authUseCase.login(requestDto);
+
+        // THEN
+        assertThat(result.accessToken()).isEqualTo("jwt-access-token");
+        assertThat(result.type()).isEqualTo("Bearer");
+        verify(jwtService).generateToken(eq(user.getEmail()), eq(List.of(Role.COLLABORATOR)));
+    }
+
+    @Test
+    void should_throw_unauthorized_when_credentials_invalid() {
+
+        // GIVEN
+        LoginRequestDto requestDto = new LoginRequestDto(
+                "alice.smith@company.com",
+                "WrongPassword123!@#"
+        );
+
+        User user = User.builder()
+                .id(1L)
+                .email("alice.smith@company.com")
+                .password("hashed-password")
+                .role(Role.COLLABORATOR)
+                .build();
+
+        when(userRepository.findByEmail("alice.smith@company.com"))
+                .thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(requestDto.password(), user.getPassword()))
+                .thenReturn(false);
+
+        // WHEN / THEN
+        assertThatThrownBy(() -> authUseCase.login(requestDto))
+                .isInstanceOf(UnauthorizedException.class)
+                .hasMessage("Identifiants invalides");
+
+        verify(jwtService, never()).generateToken(anyString(), any());
+    }
+
+    @Test
+    void should_throw_unauthorized_when_user_absent() {
+
+        // GIVEN
+        LoginRequestDto requestDto = new LoginRequestDto(
+                "unknown@company.com",
+                "Password123!@#"
+        );
+
+        when(userRepository.findByEmail("unknown@company.com"))
+                .thenReturn(Optional.empty());
+
+        // WHEN / THEN
+        assertThatThrownBy(() -> authUseCase.login(requestDto))
+                .isInstanceOf(UnauthorizedException.class)
+                .hasMessage("Identifiants invalides");
+
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+        verify(jwtService, never()).generateToken(anyString(), any());
     }
 }

@@ -65,8 +65,13 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "Accès refusé", req.getRequestURI());
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiError> handleUnauthorized(UnauthorizedException ex, HttpServletRequest req) {
+        return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req.getRequestURI());
+    }
+
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiError> handleAuth(UnauthorizedException ex, HttpServletRequest req) {
+    public ResponseEntity<ApiError> handleAuthentication(AuthenticationException ex, HttpServletRequest req) {
         return build(HttpStatus.UNAUTHORIZED, "Authentification requise", req.getRequestURI());
     }
 
