@@ -1,6 +1,8 @@
 package com.example.api.auth.presentation;
 
 import com.example.api.auth.application.AuthUseCase;
+import com.example.api.auth.application.dto.LoginRequestDto;
+import com.example.api.auth.application.dto.LoginResponseDto;
 import com.example.api.auth.application.dto.RegisterRequestDto;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -23,5 +25,13 @@ public class AuthController {
         useCase.register(dto);
 
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDto> login(
+            @Valid @RequestBody LoginRequestDto dto) {
+
+        LoginResponseDto response = useCase.login(dto);
+        return ResponseEntity.ok(response);
     }
 }

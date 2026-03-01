@@ -1,27 +1,36 @@
 package com.example.api.auth.application;
 
+import com.example.api.auth.application.dto.LoginRequestDto;
+import com.example.api.auth.application.dto.LoginResponseDto;
 import com.example.api.auth.application.dto.RegisterRequestDto;
+import com.example.api.shared.exception.ConflictException;
+import com.example.api.shared.exception.UnauthorizedException;
+import com.example.api.shared.security.JwtService;
 import com.example.api.user.domain.Role;
 import com.example.api.user.domain.User;
 import com.example.api.user.domain.UserRepositoryPort;
-import com.example.api.shared.exception.ConflictException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class AuthUseCase {
 
     private final UserRepositoryPort userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     private static final Logger log = LoggerFactory.getLogger(AuthUseCase.class);
 
     public AuthUseCase(UserRepositoryPort userRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     public void register(RegisterRequestDto request) {
@@ -44,5 +53,25 @@ public class AuthUseCase {
         log.info("Registering new user: {}", normalizedEmail);
 
         userRepository.save(user);
+    }
+
+    public LoginResponseDto login(LoginRequestDto request) {
+        String normalizedEmail = request.email().toLowerCase().trim();
+
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> {
+                    log.warn("Login échoué: utilisateur non trouvé pour l'email");
+                    return new UnauthorizedException("Identifiants invalides");
+                });
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            log.warn("Login échoué: mot de passe invalide pour l'utilisateur");
+            throw new UnauthorizedException("Identifiants invalides");
+        }
+
+        String token = jwtService.generateToken(user.getEmail(), List.of(user.getRole()));
+        log.info("User loggué avec succès: {}", normalizedEmail);
+
+        return LoginResponseDto.of(token);
     }
 }
