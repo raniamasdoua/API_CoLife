@@ -31,6 +31,14 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, ex.getMessage(), req.getRequestURI());
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiError> handleConflict(
+            ConflictException ex,
+            HttpServletRequest request) {
+
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request.getRequestURI());
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiError> handleBadCredentials(BadCredentialsException ex, HttpServletRequest req) {
         return build(HttpStatus.UNAUTHORIZED, "Credentials invalides", req.getRequestURI());
