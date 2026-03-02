@@ -3,9 +3,12 @@ package com.example.api.auth.presentation;
 import com.example.api.auth.application.AuthUseCase;
 import com.example.api.auth.application.dto.LoginRequestDto;
 import com.example.api.auth.application.dto.LoginResponseDto;
+import com.example.api.auth.application.dto.MeResponseDto;
 import com.example.api.auth.application.dto.RegisterRequestDto;
+import com.example.api.shared.security.JwtPrincipal;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -33,5 +36,11 @@ public class AuthController {
 
         LoginResponseDto response = useCase.login(dto);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<MeResponseDto> me(@AuthenticationPrincipal JwtPrincipal principal) {
+        MeResponseDto me = useCase.getMe(principal);
+        return ResponseEntity.ok(me);
     }
 }

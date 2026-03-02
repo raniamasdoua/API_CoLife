@@ -2,9 +2,11 @@ package com.example.api.auth.application;
 
 import com.example.api.auth.application.dto.LoginRequestDto;
 import com.example.api.auth.application.dto.LoginResponseDto;
+import com.example.api.auth.application.dto.MeResponseDto;
 import com.example.api.auth.application.dto.RegisterRequestDto;
 import com.example.api.shared.exception.ConflictException;
 import com.example.api.shared.exception.UnauthorizedException;
+import com.example.api.shared.security.JwtPrincipal;
 import com.example.api.shared.security.JwtService;
 import com.example.api.user.domain.Role;
 import com.example.api.user.domain.User;
@@ -13,8 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class AuthUseCase {
@@ -69,9 +69,13 @@ public class AuthUseCase {
             throw new UnauthorizedException("Identifiants invalides");
         }
 
-        String token = jwtService.generateToken(user.getEmail(), List.of(user.getRole()));
+        String token = jwtService.generateToken(user.getId(), user.getEmail(), user.getRole());
         log.info("User loggué avec succès: {}", normalizedEmail);
 
         return LoginResponseDto.of(token);
+    }
+
+    public MeResponseDto getMe(JwtPrincipal principal) {
+        return new MeResponseDto(principal.userId(), principal.email(), principal.role());
     }
 }

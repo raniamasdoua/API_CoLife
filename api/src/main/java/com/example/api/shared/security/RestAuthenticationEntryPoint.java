@@ -39,7 +39,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
                 Instant.now(),
                 401,
                 "Unauthorized",
-                "Authentication required",
+                "Authentication requise",
                 request.getRequestURI()
         );
 
