@@ -3,9 +3,11 @@ package com.example.api;
 import com.example.api.auth.application.AuthUseCase;
 import com.example.api.auth.application.dto.LoginRequestDto;
 import com.example.api.auth.application.dto.LoginResponseDto;
+import com.example.api.auth.application.dto.MeResponseDto;
 import com.example.api.auth.application.dto.RegisterRequestDto;
 import com.example.api.shared.exception.ConflictException;
 import com.example.api.shared.exception.UnauthorizedException;
+import com.example.api.shared.security.JwtPrincipal;
 import com.example.api.shared.security.JwtService;
 import com.example.api.user.domain.Role;
 import com.example.api.user.domain.User;
@@ -20,10 +22,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -118,7 +120,7 @@ class AuthUseCaseTest {
                 .thenReturn(Optional.of(user));
         when(passwordEncoder.matches(requestDto.password(), user.getPassword()))
                 .thenReturn(true);
-        when(jwtService.generateToken(user.getEmail(), List.of(Role.COLLABORATOR)))
+        when(jwtService.generateToken(user.getId(), user.getEmail(), Role.COLLABORATOR))
                 .thenReturn("jwt-access-token");
 
         // WHEN
@@ -127,7 +129,7 @@ class AuthUseCaseTest {
         // THEN
         assertThat(result.accessToken()).isEqualTo("jwt-access-token");
         assertThat(result.type()).isEqualTo("Bearer");
-        verify(jwtService).generateToken(eq(user.getEmail()), eq(List.of(Role.COLLABORATOR)));
+        verify(jwtService).generateToken(eq(user.getId()), eq(user.getEmail()), eq(Role.COLLABORATOR));
     }
 
     @Test
@@ -156,7 +158,7 @@ class AuthUseCaseTest {
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessage("Identifiants invalides");
 
-        verify(jwtService, never()).generateToken(anyString(), any());
+        verify(jwtService, never()).generateToken(anyLong(), anyString(), any(Role.class));
     }
 
     @Test
@@ -177,6 +179,22 @@ class AuthUseCaseTest {
                 .hasMessage("Identifiants invalides");
 
         verify(passwordEncoder, never()).matches(anyString(), anyString());
-        verify(jwtService, never()).generateToken(anyString(), any());
+        verify(jwtService, never()).generateToken(anyLong(), anyString(), any(Role.class));
+    }
+
+    @Test
+    void should_return_me_from_principal_without_db_lookup() {
+
+        // GIVEN
+        JwtPrincipal principal = new JwtPrincipal(1L, "alice@company.com", Role.COLLABORATOR);
+
+        // WHEN
+        MeResponseDto result = authUseCase.getMe(principal);
+
+        // THEN
+        assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.email()).isEqualTo("alice@company.com");
+        assertThat(result.role()).isEqualTo(Role.COLLABORATOR);
+        verify(userRepository, never()).findByEmail(anyString());
     }
 }

@@ -1,5 +1,6 @@
 package com.example.api.shared.security;
 
+import com.example.api.user.domain.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.security.SignatureException;
@@ -17,7 +18,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -45,18 +45,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             Claims claims = jwtService.parseToken(token);
-            String subject = claims.getSubject();
-            @SuppressWarnings("unchecked")
-            List<String> roles = claims.get("roles", List.class);
+            String email = claims.getSubject();
+            Long userId = claims.get(JwtService.CLAIM_USER_ID, Long.class);
+            String roleName = claims.get(JwtService.CLAIM_ROLE, String.class);
 
-            List<SimpleGrantedAuthority> authorities = roles != null
-                    ? roles.stream()
-                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
-                    .collect(Collectors.toList())
-                    : List.of();
+            Role role = roleName != null ? Role.valueOf(roleName) : Role.COLLABORATOR;
+            List<SimpleGrantedAuthority> authorities = List.of(
+                    new SimpleGrantedAuthority("ROLE_" + role.name())
+            );
+
+            JwtPrincipal principal = new JwtPrincipal(userId, email, role);
 
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    subject,
+                    principal,
                     null,
                     authorities
             );
