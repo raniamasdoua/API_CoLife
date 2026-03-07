@@ -53,7 +53,7 @@ class AuthUseCaseTest {
         RegisterRequestDto requestDto = new RegisterRequestDto(
                 "Alice",
                 "Smith",
-                "alice.smith@company.com",
+                "alice.smith@entreprise.com",
                 "Password123!@#"
         );
 
@@ -83,7 +83,7 @@ class AuthUseCaseTest {
         RegisterRequestDto requestDto = new RegisterRequestDto(
                 "Alice",
                 "Smith",
-                "alice.smith@company.com",
+                "alice.smith@entreprise.com",
                 "Password123!@#"
         );
 
@@ -105,18 +105,18 @@ class AuthUseCaseTest {
 
         // GIVEN
         LoginRequestDto requestDto = new LoginRequestDto(
-                "alice.smith@company.com",
+                "alice.smith@entreprise.com",
                 "Password123!@#"
         );
 
         User user = User.builder()
                 .id(1L)
-                .email("alice.smith@company.com")
+                .email("alice.smith@entreprise.com")
                 .password("hashed-password")
                 .role(Role.COLLABORATOR)
                 .build();
 
-        when(userRepository.findByEmail("alice.smith@company.com"))
+        when(userRepository.findByEmail("alice.smith@entreprise.com"))
                 .thenReturn(Optional.of(user));
         when(passwordEncoder.matches(requestDto.password(), user.getPassword()))
                 .thenReturn(true);
@@ -137,18 +137,18 @@ class AuthUseCaseTest {
 
         // GIVEN
         LoginRequestDto requestDto = new LoginRequestDto(
-                "alice.smith@company.com",
+                "alice.smith@entreprise.com",
                 "WrongPassword123!@#"
         );
 
         User user = User.builder()
                 .id(1L)
-                .email("alice.smith@company.com")
+                .email("alice.smith@entreprise.com")
                 .password("hashed-password")
                 .role(Role.COLLABORATOR)
                 .build();
 
-        when(userRepository.findByEmail("alice.smith@company.com"))
+        when(userRepository.findByEmail("alice.smith@entreprise.com"))
                 .thenReturn(Optional.of(user));
         when(passwordEncoder.matches(requestDto.password(), user.getPassword()))
                 .thenReturn(false);
@@ -166,11 +166,11 @@ class AuthUseCaseTest {
 
         // GIVEN
         LoginRequestDto requestDto = new LoginRequestDto(
-                "unknown@company.com",
+                "unknown@entreprise.com",
                 "Password123!@#"
         );
 
-        when(userRepository.findByEmail("unknown@company.com"))
+        when(userRepository.findByEmail("unknown@entreprise.com"))
                 .thenReturn(Optional.empty());
 
         // WHEN / THEN
@@ -186,14 +186,14 @@ class AuthUseCaseTest {
     void should_return_me_from_principal_without_db_lookup() {
 
         // GIVEN
-        JwtPrincipal principal = new JwtPrincipal(1L, "alice@company.com", Role.COLLABORATOR);
+        JwtPrincipal principal = new JwtPrincipal(1L, "alice@entreprise.com", Role.COLLABORATOR);
 
         // WHEN
         MeResponseDto result = authUseCase.getMe(principal);
 
         // THEN
         assertThat(result.id()).isEqualTo(1L);
-        assertThat(result.email()).isEqualTo("alice@company.com");
+        assertThat(result.email()).isEqualTo("alice@entreprise.com");
         assertThat(result.role()).isEqualTo(Role.COLLABORATOR);
         verify(userRepository, never()).findByEmail(anyString());
     }
