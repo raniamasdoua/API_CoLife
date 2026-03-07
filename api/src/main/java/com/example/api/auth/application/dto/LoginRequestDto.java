@@ -8,8 +8,8 @@ public record LoginRequestDto(
         @NotBlank
         @Email
         @Pattern(
-                regexp = "^[A-Za-z0-9._%+-]+@company\\.com$",
-                message = "L'adresse e-mail doit être au format @company.com"
+                regexp = "^[A-Za-z0-9._%+-]+@entreprise\\.com$",
+                message = "L'adresse e-mail doit être au format @entreprise.com"
         )
         String email,
 

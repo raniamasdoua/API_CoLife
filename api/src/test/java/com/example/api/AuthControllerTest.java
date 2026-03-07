@@ -34,7 +34,7 @@ class AuthControllerTest {
         RegisterRequestDto requestDto = new RegisterRequestDto(
                 "Alice",
                 "Smith",
-                "alice.smith@company.com",
+                "alice.smith@entreprise.com",
                 "Password123!@#"
         );
 
@@ -54,7 +54,7 @@ class AuthControllerTest {
         RegisterRequestDto requestDto = new RegisterRequestDto(
                 "Bob",
                 "Martin",
-                "bob.martin@company.com",
+                "bob.martin@entreprise.com",
                 "SecurePass123!@#"
         );
 
@@ -70,7 +70,7 @@ class AuthControllerTest {
 
         // GIVEN
         LoginRequestDto requestDto = new LoginRequestDto(
-                "alice.smith@company.com",
+                "alice.smith@entreprise.com",
                 "Password123!@#"
         );
         LoginResponseDto expectedResponse = new LoginResponseDto("jwt-token", "Bearer");
@@ -91,8 +91,8 @@ class AuthControllerTest {
     void should_return_me_when_authenticated_with_jwt_principal() {
 
         // GIVEN
-        JwtPrincipal principal = new JwtPrincipal(1L, "alice@company.com", Role.COLLABORATOR);
-        MeResponseDto expectedMe = new MeResponseDto(1L, "alice@company.com", Role.COLLABORATOR);
+        JwtPrincipal principal = new JwtPrincipal(1L, "alice@entreprise.com", Role.COLLABORATOR);
+        MeResponseDto expectedMe = new MeResponseDto(1L, "alice@entreprise.com", Role.COLLABORATOR);
         when(authUseCase.getMe(principal)).thenReturn(expectedMe);
 
         // WHEN
@@ -102,7 +102,7 @@ class AuthControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().id()).isEqualTo(1L);
-        assertThat(response.getBody().email()).isEqualTo("alice@company.com");
+        assertThat(response.getBody().email()).isEqualTo("alice@entreprise.com");
         assertThat(response.getBody().role()).isEqualTo(Role.COLLABORATOR);
         verify(authUseCase).getMe(principal);
     }

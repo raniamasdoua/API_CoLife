@@ -30,7 +30,7 @@ class UserUseCaseTest {
     @Test
     void should_return_user_when_found() {
         // GIVEN
-        User targetUser = User.builder().id(2L).email("bob@company.com").role(Role.COLLABORATOR).build();
+        User targetUser = User.builder().id(2L).email("bob@entreprise.com").role(Role.COLLABORATOR).build();
         when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
 
         // WHEN
@@ -38,14 +38,14 @@ class UserUseCaseTest {
 
         // THEN
         assertThat(result.id()).isEqualTo(2L);
-        assertThat(result.email()).isEqualTo("bob@company.com");
+        assertThat(result.email()).isEqualTo("bob@entreprise.com");
         assertThat(result.role()).isEqualTo(Role.COLLABORATOR);
     }
 
     @Test
     void should_return_own_profile_when_found() {
         // GIVEN
-        User currentUser = User.builder().id(1L).email("alice@company.com").role(Role.COLLABORATOR).build();
+        User currentUser = User.builder().id(1L).email("alice@entreprise.com").role(Role.COLLABORATOR).build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
 
         // WHEN
@@ -53,7 +53,7 @@ class UserUseCaseTest {
 
         // THEN
         assertThat(result.id()).isEqualTo(1L);
-        assertThat(result.email()).isEqualTo("alice@company.com");
+        assertThat(result.email()).isEqualTo("alice@entreprise.com");
     }
 
     @Test
