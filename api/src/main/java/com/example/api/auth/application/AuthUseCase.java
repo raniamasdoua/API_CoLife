@@ -75,7 +75,23 @@ public class AuthUseCase {
         return LoginResponseDto.of(token);
     }
 
+    /**
+     * Retourne les informations complètes de l'utilisateur connecté.
+     * Effectue une requête DB pour récupérer bio, phone, address et createdAt.
+     */
     public MeResponseDto getMe(JwtPrincipal principal) {
-        return new MeResponseDto(principal.userId(), principal.email(), principal.role());
+        User user = userRepository.findById(principal.userId())
+                .orElseThrow(() -> new UnauthorizedException("Utilisateur introuvable"));
+        return new MeResponseDto(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                user.getRole(),
+                user.getBio(),
+                user.getPhone(),
+                user.getAddress(),
+                user.getCreatedAt()
+        );
     }
 }
