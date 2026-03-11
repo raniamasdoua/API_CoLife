@@ -51,10 +51,10 @@ class AuthUseCaseTest {
 
         // GIVEN
         RegisterRequestDto requestDto = new RegisterRequestDto(
-                "Alice",
-                "Smith",
+                "Alice", "Smith",
                 "alice.smith@entreprise.com",
-                "Password123!@#"
+                "Password123!@#",
+                "Ma bio", "+33600000000", "Paris, France"
         );
 
         when(passwordEncoder.encode(anyString()))
@@ -73,6 +73,9 @@ class AuthUseCaseTest {
                         && user.getEmail().equals(requestDto.email())
                         && user.getPassword().equals("hashed-password")
                         && user.getRole() == Role.COLLABORATOR
+                        && "Ma bio".equals(user.getBio())
+                        && "+33600000000".equals(user.getPhone())
+                        && "Paris, France".equals(user.getAddress())
         ));
     }
 
@@ -81,10 +84,10 @@ class AuthUseCaseTest {
 
         // GIVEN
         RegisterRequestDto requestDto = new RegisterRequestDto(
-                "Alice",
-                "Smith",
+                "Alice", "Smith",
                 "alice.smith@entreprise.com",
-                "Password123!@#"
+                "Password123!@#",
+                null, null, null
         );
 
         when(userRepository.findByEmail(anyString()))

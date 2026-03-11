@@ -32,10 +32,10 @@ class AuthControllerTest {
 
         // GIVEN
         RegisterRequestDto requestDto = new RegisterRequestDto(
-                "Alice",
-                "Smith",
+                "Alice", "Smith",
                 "alice.smith@entreprise.com",
-                "Password123!@#"
+                "Password123!@#",
+                null, null, null
         );
 
         // WHEN
@@ -52,10 +52,10 @@ class AuthControllerTest {
 
         // GIVEN
         RegisterRequestDto requestDto = new RegisterRequestDto(
-                "Bob",
-                "Martin",
+                "Bob", "Martin",
                 "bob.martin@entreprise.com",
-                "SecurePass123!@#"
+                "SecurePass123!@#",
+                null, null, null
         );
 
         // WHEN
