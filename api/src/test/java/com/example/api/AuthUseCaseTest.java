@@ -183,18 +183,37 @@ class AuthUseCaseTest {
     }
 
     @Test
-    void should_return_me_from_principal_without_db_lookup() {
-
+    void should_return_me_with_full_profile_from_db() {
         // GIVEN
         JwtPrincipal principal = new JwtPrincipal(1L, "alice@entreprise.com", Role.COLLABORATOR);
+
+        User user = User.builder()
+                .id(1L)
+                .firstName("Alice")
+                .lastName("Smith")
+                .email("alice@entreprise.com")
+                .role(Role.COLLABORATOR)
+                .bio("Ma bio")
+                .phone("+33600000000")
+                .address("Paris, France")
+                .createdAt(java.time.LocalDate.of(2024, 10, 1))
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         // WHEN
         MeResponseDto result = authUseCase.getMe(principal);
 
         // THEN
         assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.firstName()).isEqualTo("Alice");
+        assertThat(result.lastName()).isEqualTo("Smith");
         assertThat(result.email()).isEqualTo("alice@entreprise.com");
         assertThat(result.role()).isEqualTo(Role.COLLABORATOR);
+        assertThat(result.bio()).isEqualTo("Ma bio");
+        assertThat(result.phone()).isEqualTo("+33600000000");
+        assertThat(result.address()).isEqualTo("Paris, France");
+        verify(userRepository).findById(1L);
         verify(userRepository, never()).findByEmail(anyString());
     }
 }

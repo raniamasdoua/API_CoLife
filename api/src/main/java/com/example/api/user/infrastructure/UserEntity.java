@@ -4,11 +4,16 @@ import com.example.api.user.domain.Role;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "users",
         uniqueConstraints = @UniqueConstraint(columnNames = "email"))
 @Getter
+@Setter
 @NoArgsConstructor
 public class UserEntity {
 
@@ -31,6 +36,15 @@ public class UserEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+    @Column(columnDefinition = "TEXT")
+    private String bio;
+    @Column(length = 30)
+    private String phone;
+    @Column(length = 255)
+    private String address;
+    @CreationTimestamp
+    @Column(updatable = false)
+    private LocalDate createdAt;
 
     public UserEntity(String firstName,
                       String lastName,

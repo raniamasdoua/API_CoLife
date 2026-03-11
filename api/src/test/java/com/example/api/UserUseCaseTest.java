@@ -2,20 +2,24 @@ package com.example.api;
 
 import com.example.api.shared.exception.ResourceNotFoundException;
 import com.example.api.user.application.UserUseCase;
+import com.example.api.user.application.dto.UpdateProfileRequestDto;
 import com.example.api.user.application.dto.UserResponseDto;
 import com.example.api.user.domain.Role;
 import com.example.api.user.domain.User;
 import com.example.api.user.domain.UserRepositoryPort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,33 +31,39 @@ class UserUseCaseTest {
     @InjectMocks
     private UserUseCase userUseCase;
 
-    @Test
-    void should_return_user_when_found() {
-        // GIVEN
-        User targetUser = User.builder().id(2L).email("bob@entreprise.com").role(Role.COLLABORATOR).build();
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+    private static final LocalDate CREATED_AT = LocalDate.of(2024, 10, 1);
 
-        // WHEN
-        UserResponseDto result = userUseCase.getUserById(2L);
-
-        // THEN
-        assertThat(result.id()).isEqualTo(2L);
-        assertThat(result.email()).isEqualTo("bob@entreprise.com");
-        assertThat(result.role()).isEqualTo(Role.COLLABORATOR);
-    }
+    // ─── getUserById ──────────────────────────────────────────────────────────
 
     @Test
-    void should_return_own_profile_when_found() {
+    void should_return_full_profile_when_user_found() {
         // GIVEN
-        User currentUser = User.builder().id(1L).email("alice@entreprise.com").role(Role.COLLABORATOR).build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
+        User user = User.builder()
+                .id(1L)
+                .firstName("Alice")
+                .lastName("Smith")
+                .email("alice@entreprise.com")
+                .role(Role.COLLABORATOR)
+                .bio("Passionnée de sport")
+                .phone("+33600000000")
+                .address("Paris, France")
+                .createdAt(CREATED_AT)
+                .build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         // WHEN
         UserResponseDto result = userUseCase.getUserById(1L);
 
         // THEN
         assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.firstName()).isEqualTo("Alice");
+        assertThat(result.lastName()).isEqualTo("Smith");
         assertThat(result.email()).isEqualTo("alice@entreprise.com");
+        assertThat(result.role()).isEqualTo(Role.COLLABORATOR);
+        assertThat(result.bio()).isEqualTo("Passionnée de sport");
+        assertThat(result.phone()).isEqualTo("+33600000000");
+        assertThat(result.address()).isEqualTo("Paris, France");
+        assertThat(result.createdAt()).isEqualTo(CREATED_AT);
     }
 
     @Test
@@ -65,5 +75,98 @@ class UserUseCaseTest {
         assertThatThrownBy(() -> userUseCase.getUserById(999L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Utilisateur non trouvé");
+    }
+
+    // ─── updateProfile ────────────────────────────────────────────────────────
+
+    @Test
+    void should_update_bio_phone_address_and_return_updated_profile() {
+        // GIVEN
+        User existing = User.builder()
+                .id(1L)
+                .firstName("Alice")
+                .lastName("Smith")
+                .email("alice@entreprise.com")
+                .role(Role.COLLABORATOR)
+                .bio("Ancienne bio")
+                .phone("+33600000000")
+                .address("Lyon, France")
+                .createdAt(CREATED_AT)
+                .build();
+
+        User savedUser = existing
+                .withBio("Nouvelle bio")
+                .withPhone("+33611111111")
+                .withAddress("Paris, France");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.update(any())).thenReturn(savedUser);
+
+        UpdateProfileRequestDto request = new UpdateProfileRequestDto(
+                "Nouvelle bio", "+33611111111", "Paris, France");
+
+        // WHEN
+        UserResponseDto result = userUseCase.updateProfile(1L, request);
+
+        // THEN
+        assertThat(result.bio()).isEqualTo("Nouvelle bio");
+        assertThat(result.phone()).isEqualTo("+33611111111");
+        assertThat(result.address()).isEqualTo("Paris, France");
+        assertThat(result.firstName()).isEqualTo("Alice");
+        assertThat(result.email()).isEqualTo("alice@entreprise.com");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).update(captor.capture());
+        assertThat(captor.getValue().getBio()).isEqualTo("Nouvelle bio");
+    }
+
+    @Test
+    void should_keep_existing_values_when_patch_fields_are_null() {
+        // GIVEN
+        User existing = User.builder()
+                .id(1L)
+                .firstName("Alice")
+                .lastName("Smith")
+                .email("alice@entreprise.com")
+                .role(Role.COLLABORATOR)
+                .bio("Bio existante")
+                .phone("+33600000000")
+                .address("Paris, France")
+                .createdAt(CREATED_AT)
+                .build();
+
+        User savedUser = existing.withPhone("+33699999999");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.update(any())).thenReturn(savedUser);
+
+        // Seul le phone est modifié — bio et address sont null (patch partiel)
+        UpdateProfileRequestDto request = new UpdateProfileRequestDto(
+                null, "+33699999999", null);
+
+        // WHEN
+        UserResponseDto result = userUseCase.updateProfile(1L, request);
+
+        // THEN — les champs null gardent leurs valeurs
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).update(captor.capture());
+        User captured = captor.getValue();
+        assertThat(captured.getBio()).isEqualTo("Bio existante");
+        assertThat(captured.getPhone()).isEqualTo("+33699999999");
+        assertThat(captured.getAddress()).isEqualTo("Paris, France");
+    }
+
+    @Test
+    void should_throw_not_found_when_updating_non_existing_user() {
+        // GIVEN
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+
+        // WHEN / THEN
+        assertThatThrownBy(() -> userUseCase.updateProfile(999L,
+                new UpdateProfileRequestDto("bio", null, null)))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Utilisateur non trouvé");
+
+        verify(userRepository, never()).update(any());
     }
 }

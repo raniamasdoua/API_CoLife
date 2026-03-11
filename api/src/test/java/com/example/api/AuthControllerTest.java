@@ -92,7 +92,10 @@ class AuthControllerTest {
 
         // GIVEN
         JwtPrincipal principal = new JwtPrincipal(1L, "alice@entreprise.com", Role.COLLABORATOR);
-        MeResponseDto expectedMe = new MeResponseDto(1L, "alice@entreprise.com", Role.COLLABORATOR);
+        MeResponseDto expectedMe = new MeResponseDto(
+                1L, "Alice", "Smith", "alice@entreprise.com", Role.COLLABORATOR,
+                "Ma bio", "+33600000000", "Paris, France",
+                java.time.LocalDate.of(2024, 10, 1));
         when(authUseCase.getMe(principal)).thenReturn(expectedMe);
 
         // WHEN
@@ -102,6 +105,7 @@ class AuthControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().id()).isEqualTo(1L);
+        assertThat(response.getBody().firstName()).isEqualTo("Alice");
         assertThat(response.getBody().email()).isEqualTo("alice@entreprise.com");
         assertThat(response.getBody().role()).isEqualTo(Role.COLLABORATOR);
         verify(authUseCase).getMe(principal);
