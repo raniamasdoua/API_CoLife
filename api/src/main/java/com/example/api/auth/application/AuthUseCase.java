@@ -48,6 +48,9 @@ public class AuthUseCase {
                 .email(request.email())
                 .password(hashedPassword)
                 .role(Role.COLLABORATOR)
+                .bio(request.bio())
+                .phone(request.phone())
+                .address(request.address())
                 .build();
 
         log.info("Registering new user: {}", normalizedEmail);
