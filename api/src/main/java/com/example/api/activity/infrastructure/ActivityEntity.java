@@ -3,12 +3,18 @@ package com.example.api.activity.infrastructure;
 import com.example.api.activityType.infrastructure.ActivityTypeEntity;
 import com.example.api.user.infrastructure.UserEntity;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Entity
 @Table(name = "activities")
+@Getter
+@Setter
+@NoArgsConstructor
 public class ActivityEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,5 +44,4 @@ public class ActivityEntity {
     private LocalTime endTime;
 
     private boolean isDeleted;
-
 }

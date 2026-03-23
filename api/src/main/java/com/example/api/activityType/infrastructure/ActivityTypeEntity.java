@@ -1,11 +1,15 @@
 package com.example.api.activityType.infrastructure;
 
-import jakarta.persistence.Entity;
 import jakarta.persistence.*;
-import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "activity_types")
+@Getter
+@Setter
+@NoArgsConstructor
 public class ActivityTypeEntity {
 
     @Id
