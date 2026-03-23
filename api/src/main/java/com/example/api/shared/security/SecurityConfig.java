@@ -42,6 +42,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/register", "/auth/login").permitAll()
                         .requestMatchers("/auth/me").authenticated()
                         .requestMatchers("/user/**").authenticated()
+                        .requestMatchers("/activity-types").authenticated()
                         .requestMatchers("/activities/**", "/subscriptions/**").authenticated()
                         // Pour des routes réservées aux admins : .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
