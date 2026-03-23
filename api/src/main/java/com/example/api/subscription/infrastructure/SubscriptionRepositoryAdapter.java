@@ -3,6 +3,8 @@ package com.example.api.subscription.infrastructure;
 import com.example.api.subscription.domain.SubscriptionRepositoryPort;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+
 @Component
 public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort {
     private final SubscriptionJpaRepository jpa;
@@ -16,5 +18,12 @@ public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort
         return jpa.existsByActivityIdAndUserId(activityId, userId);
     }
 
-
+    @Override
+    public void registerParticipant(Long activityId, Long userId) {
+        SubscriptionEntity entity = new SubscriptionEntity();
+        entity.setActivityId(activityId);
+        entity.setUserId(userId);
+        entity.setSubscribedAt(LocalDateTime.now());
+        jpa.save(entity);
+    }
 }

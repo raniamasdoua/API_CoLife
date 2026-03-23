@@ -1,6 +1,7 @@
 package com.example.api.activityType.infrastructure;
 
 import com.example.api.activityType.domain.ActivityType;
+import com.example.api.activityType.domain.ActivityTypeMapper;
 import com.example.api.activityType.domain.ActivityTypeRepositoryPort;
 import org.springframework.stereotype.Component;
 
@@ -15,24 +16,28 @@ public class ActivityTypeRepositoryAdapter implements ActivityTypeRepositoryPort
         this.activityTypeJpaRepository = activityTypeJpaRepository;
     }
 
-
     @Override
     public ActivityType save(ActivityType activityType) {
-        return null;
+        ActivityTypeEntity entity = new ActivityTypeEntity();
+        entity.setName(activityType.getName());
+        ActivityTypeEntity saved = activityTypeJpaRepository.save(entity);
+        return ActivityTypeMapper.toDomain(saved);
     }
 
     @Override
     public Optional<ActivityType> findById(Long id) {
-        return Optional.empty();
+        return activityTypeJpaRepository.findById(id).map(ActivityTypeMapper::toDomain);
     }
 
     @Override
     public List<ActivityType> findAll() {
-        return List.of();
+        return activityTypeJpaRepository.findAll().stream()
+                .map(ActivityTypeMapper::toDomain)
+                .toList();
     }
 
     @Override
     public boolean existsByName(String name) {
-        return false;
+        return activityTypeJpaRepository.existsByName(name);
     }
 }

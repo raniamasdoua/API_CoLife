@@ -1,18 +1,23 @@
 package com.example.api.activity.domain;
 
-import com.example.api.activityType.domain.ActivityType;
+import lombok.Builder;
+import lombok.Getter;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+
+@Getter
+@Builder
 public class Activity {
     private Long id;
     private String title;
     private String description;
     private int capacity;
     private Location location;
-    private Long type_id;
-    private Long organizer_id;
+    private Long typeId;
+    private Long organizerId;
     private LocalDate date;
     private LocalTime startTime;
     private LocalTime endTime;
-    private boolean isDeleted; }
+    private boolean deleted;
+}

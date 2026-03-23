@@ -1,6 +1,7 @@
 package com.example.api.activity.application.dto;
 
-public record ActivityTypeDto (
+public record ActivityTypeDto(
+        Long id,
         String name
-){
+) {
 }
