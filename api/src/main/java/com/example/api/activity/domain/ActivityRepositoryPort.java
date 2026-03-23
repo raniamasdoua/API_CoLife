@@ -12,6 +12,10 @@ public interface ActivityRepositoryPort {
 
     List<Activity> findAll();
 
+    List<Activity> findByOrganizerId(Long organizerId);
+
+    List<Activity> findByOrganizerIdNot(Long organizerId);
+
     /**
      * Vérifie si l'organisateur a déjà une activité non supprimée le même jour avec un créneau qui chevauche [start, end].
      */
