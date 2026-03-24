@@ -1,1 +1,0 @@
-INSERT INTO activity_types (name) VALUES ('Yoga');
