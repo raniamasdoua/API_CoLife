@@ -58,6 +58,20 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
     }
 
     @Override
+    public List<Activity> findByOrganizerId(Long organizerId) {
+        return activityJpaRepository.findByOrganizerIdAndNotDeleted(organizerId).stream()
+                .map(ActivityMapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Activity> findByOrganizerIdNot(Long organizerId) {
+        return activityJpaRepository.findByOrganizerIdNotAndNotDeleted(organizerId).stream()
+                .map(ActivityMapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public boolean existsOverlappingForOrganizer(Long organizerId, LocalDate date, LocalTime start, LocalTime end) {
         return activityJpaRepository.existsOverlappingForOrganizer(organizerId, date, start, end);
     }

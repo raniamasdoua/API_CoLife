@@ -19,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class ActivityUseCase {
@@ -82,6 +85,32 @@ public class ActivityUseCase {
         subscriptionRepository.registerParticipant(saved.getId(), organizerId);
 
         return toResponse(saved, activityType);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityResponseDto> getMyActivities(Long userId) {
+        List<Activity> activities = activityRepository.findByOrganizerId(userId);
+        return toResponseList(activities);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityResponseDto> getAvailableActivities(Long userId) {
+        List<Activity> activities = activityRepository.findByOrganizerIdNot(userId);
+        return toResponseList(activities);
+    }
+
+    private List<ActivityResponseDto> toResponseList(List<Activity> activities) {
+        Map<Long, ActivityType> typeCache = new HashMap<>();
+        return activities.stream()
+                .map(activity -> {
+                    ActivityType type = typeCache.computeIfAbsent(
+                            activity.getTypeId(),
+                            id -> activityTypeRepository.findById(id)
+                                    .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"))
+                    );
+                    return toResponse(activity, type);
+                })
+                .toList();
     }
 
     private ActivityResponseDto toResponse(Activity activity, ActivityType type) {
