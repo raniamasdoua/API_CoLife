@@ -22,6 +22,9 @@ jobs:
       - name: Make scripts executable
         run: chmod +x api/scripts/*.sh
 
+      - name: Make mvnw executable
+        run: chmod +x api/mvnw
+
       - name: Compute snapshot version
         run: |
           BASE_VERSION=$(./api/scripts/next-version.sh)
@@ -30,10 +33,10 @@ jobs:
           echo "Version: $SNAPSHOT_VERSION"
 
       - name: Set Maven version
-        run: ./mvnw -B versions:set -DnewVersion=${SNAPSHOT_VERSION} -DgenerateBackupPoms=false
+        run: /api/mvnw -B versions:set -DnewVersion=${SNAPSHOT_VERSION} -DgenerateBackupPoms=false
 
       - name: Build project
-        run: ./mvnw -B clean package
+        run: /api/mvnw -B clean package
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

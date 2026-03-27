@@ -27,6 +27,9 @@ jobs:
       - name: Make scripts executable
         run: chmod +x api/scripts/*.sh
 
+      - name: Make mvnw executable
+        run: chmod +x api/mvnw
+
       - name: Compute version
         id: version
         run: |
@@ -38,10 +41,10 @@ jobs:
         run: ./api/scripts/generate-changelog.sh $VERSION
 
       - name: Update Maven version
-        run: ./mvnw -B versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
+        run: /api/mvnw -B versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
 
       - name: Build project
-        run: ./mvnw -B clean package
+        run: /api/mvnw -B clean package
 
       - name: Commit changelog + version
         run: |
