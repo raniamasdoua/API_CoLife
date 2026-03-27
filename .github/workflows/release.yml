@@ -25,17 +25,17 @@ jobs:
           java-version: '21'
 
       - name: Make scripts executable
-        run: chmod +x scripts/*.sh
+        run: chmod +x api/scripts/*.sh
 
       - name: Compute version
         id: version
         run: |
-          VERSION=$(./scripts/next-version.sh)
+          VERSION=$(./api/scripts/next-version.sh)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Version: $VERSION"
 
       - name: Generate changelog
-        run: ./scripts/generate-changelog.sh $VERSION
+        run: ./api/scripts/generate-changelog.sh $VERSION
 
       - name: Update Maven version
         run: ./mvnw -B versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
