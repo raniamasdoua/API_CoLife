@@ -30,18 +30,18 @@ jobs:
       - name: Compute version
         id: version
         run: |
-          VERSION=$(./api/scripts/next-version.sh)
+          VERSION=$(./scripts/next-version.sh)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Version: $VERSION"
 
       - name: Generate changelog
-        run: ./api/scripts/generate-changelog.sh $VERSION
+        run: ./scripts/generate-changelog.sh $VERSION
 
       - name: Update Maven version
-        run: /api/mvnw -B versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
+        run: ./mvnw -B versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
 
       - name: Build project
-        run: /api/mvnw -B clean package
+        run: ./mvnw -B clean package
 
       - name: Commit changelog + version
         run: |
