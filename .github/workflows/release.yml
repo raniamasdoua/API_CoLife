@@ -38,10 +38,10 @@ jobs:
         run: ./api/scripts/generate-changelog.sh $VERSION
 
       - name: Update Maven version
-        run: /api/mvnw -B versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
+        run: mvn -B versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
 
       - name: Build project
-        run: /api/mvnw -B clean package
+        run: mvn -B clean package
 
       - name: Commit changelog + version
         run: |
