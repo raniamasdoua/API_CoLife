@@ -37,11 +37,11 @@ jobs:
       - name: Generate changelog
         run: ./api/scripts/generate-changelog.sh $VERSION
 
-      - name: Update Maven version
-        run: mvn -B versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
-
+      - name: Set Maven version
+        run: mvn -B -f api/pom.xml versions:set -DnewVersion=${SNAPSHOT_VERSION} -DgenerateBackupPoms=false
+      
       - name: Build project
-        run: mvn -B clean package
+        run: mvn -B -f api/pom.xml clean package
 
       - name: Commit changelog + version
         run: |
