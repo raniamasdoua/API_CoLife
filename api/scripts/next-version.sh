@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-echo "🔢 Calcul de la version..."
-
 # Dernier tag (ou 0.0.0 si aucun)
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
 
 if git rev-parse "$LAST_TAG" >/dev/null 2>&1; then
   COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:%s)
 else
-  echo "⚠️ Aucun tag existant, analyse complète"
   COMMITS=$(git log HEAD --pretty=format:%s)
 fi
 
@@ -42,7 +39,5 @@ elif [[ $PATCH -eq 1 ]]; then
 fi
 
 NEW_VERSION="v${major}.${minor}.${patch}"
-
-echo "📦 Nouvelle version : $NEW_VERSION"
 
 echo "$NEW_VERSION"
