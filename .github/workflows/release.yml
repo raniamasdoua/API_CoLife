@@ -25,7 +25,7 @@ jobs:
           java-version: '21'
 
       - name: Make scripts executable
-        run: chmod +x scripts/*.sh
+        run: chmod +x api/scripts/*.sh
 
       - name: Compute version
         id: version
@@ -62,6 +62,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create $VERSION target/*.jar \
+          gh release create $VERSION api/target/*.jar \
             --title "$VERSION" \
             --notes-file CHANGELOG.md
