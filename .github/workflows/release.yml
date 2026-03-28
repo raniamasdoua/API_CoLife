@@ -38,7 +38,7 @@ jobs:
         run: ./api/scripts/generate-changelog.sh $VERSION
 
       - name: Set Maven version
-        run: mvn -B -f api/pom.xml versions:set -DnewVersion=${SNAPSHOT_VERSION} -DgenerateBackupPoms=false
+        run: mvn -B -f api/pom.xml versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
       
       - name: Build project
         run: mvn -B -f api/pom.xml clean package
@@ -47,7 +47,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add CHANGELOG.md pom.xml
+          git add CHANGELOG.md api/pom.xml
           git commit -m "chore(release): $VERSION" || echo "Nothing to commit"
 
       - name: Push changes
