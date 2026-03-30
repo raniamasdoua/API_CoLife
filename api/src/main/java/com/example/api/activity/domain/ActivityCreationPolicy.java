@@ -13,10 +13,13 @@ public final class ActivityCreationPolicy {
     private ActivityCreationPolicy() {
     }
 
-    public static void validate(LocalDate activityDate, LocalDate today, int capacity,
-                              LocalTime startTime, LocalTime endTime) {
+    public static void validate(LocalDate activityDate, LocalDate today, LocalTime now,
+                              int capacity, LocalTime startTime, LocalTime endTime) {
         if (activityDate.isBefore(today)) {
             throw new BusinessException("La date ne peut pas être dans le passé");
+        }
+        if (activityDate.isEqual(today) && startTime.isBefore(now)) {
+            throw new BusinessException("Le créneau horaire est déjà passé pour aujourd'hui");
         }
         if (capacity <= 0) {
             throw new BusinessException("La capacité doit être strictement positive");

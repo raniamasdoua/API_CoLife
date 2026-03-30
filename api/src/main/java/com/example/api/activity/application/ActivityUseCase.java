@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,8 @@ public class ActivityUseCase {
                 .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
 
         LocalDate today = LocalDate.now(clock);
-        ActivityCreationPolicy.validate(dto.date(), today, dto.capacity(), dto.startTime(), dto.endTime());
+        LocalTime now = LocalTime.now(clock);
+        ActivityCreationPolicy.validate(dto.date(), today, now, dto.capacity(), dto.startTime(), dto.endTime());
 
         if (activityRepository.existsOverlappingForOrganizer(organizerId, dto.date(), dto.startTime(), dto.endTime())) {
             throw new ConflictException("Vous avez déjà une activité sur ce créneau horaire");

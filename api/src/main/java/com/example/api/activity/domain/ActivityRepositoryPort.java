@@ -20,4 +20,5 @@ public interface ActivityRepositoryPort {
      * Vérifie si l'organisateur a déjà une activité non supprimée le même jour avec un créneau qui chevauche [start, end].
      */
     boolean existsOverlappingForOrganizer(Long organizerId, LocalDate date, LocalTime start, LocalTime end);
+
 }
