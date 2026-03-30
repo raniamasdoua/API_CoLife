@@ -45,4 +45,5 @@ public class ActivityController {
             @AuthenticationPrincipal JwtPrincipal principal) {
         return ResponseEntity.ok(activityUseCase.getAvailableActivities(principal.userId()));
     }
+
 }

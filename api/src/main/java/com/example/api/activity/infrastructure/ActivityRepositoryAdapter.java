@@ -75,4 +75,5 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
     public boolean existsOverlappingForOrganizer(Long organizerId, LocalDate date, LocalTime start, LocalTime end) {
         return activityJpaRepository.existsOverlappingForOrganizer(organizerId, date, start, end);
     }
+
 }
