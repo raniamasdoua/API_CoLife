@@ -26,4 +26,9 @@ public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort
         entity.setSubscribedAt(LocalDateTime.now());
         jpa.save(entity);
     }
+
+    @Override
+    public int countParticipants(Long activityId) {
+        return jpa.countByActivityId(activityId);
+    }
 }
