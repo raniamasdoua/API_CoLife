@@ -10,6 +10,8 @@ public interface ActivityRepositoryPort {
 
     Activity save(Activity activity);
 
+    Activity update(Activity activity);
+
     List<Activity> findAll();
 
     List<Activity> findByOrganizerId(Long organizerId);
@@ -21,4 +23,9 @@ public interface ActivityRepositoryPort {
      */
     boolean existsOverlappingForOrganizer(Long organizerId, LocalDate date, LocalTime start, LocalTime end);
 
+    /**
+     * Vérifie si l'un des utilisateurs donnés est organisateur d'une autre activité (hors excludeActivityId)
+     * le même jour avec un créneau qui chevauche [start, end].
+     */
+    boolean existsOverlappingForUsersAsOrganizer(List<Long> userIds, LocalDate date, LocalTime start, LocalTime end, Long excludeActivityId);
 }

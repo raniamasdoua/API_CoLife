@@ -40,4 +40,21 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
             @Param("date") LocalDate date,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);
+
+    @Query("""
+            select case when count(a) > 0 then true else false end
+            from ActivityEntity a
+            where a.organizer.id in :userIds
+              and a.isDeleted = false
+              and a.id <> :excludeActivityId
+              and a.date = :date
+              and a.startTime < :endTime
+              and a.endTime > :startTime
+            """)
+    boolean existsOverlappingForUsersAsOrganizer(
+            @Param("userIds") List<Long> userIds,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime,
+            @Param("excludeActivityId") Long excludeActivityId);
 }
