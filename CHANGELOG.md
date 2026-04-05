@@ -1,27 +1,21 @@
 # Changelog
 
-## v0.1.0 - 2026-03-28
+## v0.2.0 - 2026-04-05
 
 ### 🚀 Features
-- feat(ci): ajout du script de génération du changelog et mise en place de la CI (#19) (#20)
-- feat : liste des activities créées et disponibles
-- feat : recuperer les activités
-- feat : creation d'une activité
-- feat: modifier profil utilisateur
-- feat: implémentation de la route /me et la route getUserById
-- feat: implémentation de la route connexion
-- feat: implémetntation de la route register
-- feat: mise en place entite user
-- feat: mise en place logging
-- feat: gestion des exceptions
-- feat: mise en place Clean architecture
-- feat: configuration postreSQL avec docker
-- feat : initialisation projet spring boot
+- feat(activite): suppression d'une activite
+- feat(activity): modifier une activité
+- feat(ci): ajout du script de génération du changelog et mise en place de la CI (#19)
 
 ### 🐛 Fixes
-- fix: resolve pom.xml conflict after rebase
-- fix: docker-compose
+- fix(activite): récupérer le nombre de place restantes pour une activité
+- fix(activite): création d'une activité sur un créneau déjà passé de la journée
+- fix(ci) : ajout du script de génération de la prochaine version
+- fix(ci): correction de la ci
+- fix(ci): correction des paths pour les scripts (#25)
+- fix(ci): move workflows to root directory (#24)
+- fix(ci): move workflows to root directory (#23)
 
 ### 🔧 Others
-- chore(release): v1.0.0 (#19) (#22)
+- test(activite): correction du test activite
 
