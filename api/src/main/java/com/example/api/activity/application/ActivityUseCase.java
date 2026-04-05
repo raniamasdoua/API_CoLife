@@ -100,6 +100,9 @@ public class ActivityUseCase {
     public ActivityResponseDto update(Long callerId, boolean isAdmin, Long activityId, UpdateActivityRequestDto dto) {
         Activity activity = activityRepository.findById(activityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
+        if (activity.isDeleted()) {
+            throw new ResourceNotFoundException("Activité non trouvée");
+        }
 
         if (!isAdmin && !activity.getOrganizerId().equals(callerId)) {
             throw new ForbiddenException("Vous n'êtes pas autorisé à modifier cette activité");
@@ -169,6 +172,26 @@ public class ActivityUseCase {
                 .orElse("Inconnu");
         int updatedParticipantCount = subscriptionRepository.countParticipants(saved.getId());
         return toResponse(saved, activityType, organizerName, updatedParticipantCount);
+    }
+
+    @Transactional
+    public void delete(Long callerId, boolean isAdmin, Long activityId) {
+        Activity activity = activityRepository.findById(activityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
+        if (activity.isDeleted()) {
+            throw new ResourceNotFoundException("Activité non trouvée");
+        }
+
+        if (!isAdmin && !activity.getOrganizerId().equals(callerId)) {
+            throw new ForbiddenException("Vous n'êtes pas autorisé à supprimer cette activité");
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        LocalTime now = LocalTime.now(clock);
+        ActivityUpdatePolicy.validateActivityIsModifiable(activity, today, now);
+
+        subscriptionRepository.deleteAllByActivityId(activityId);
+        activityRepository.softDelete(activityId);
     }
 
     @Transactional(readOnly = true)

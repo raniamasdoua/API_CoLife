@@ -48,4 +48,9 @@ public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort
         }
         return jpa.countConflictingActivityForSubscribedUsers(userIds, date, start, end, excludeActivityId) > 0;
     }
+
+    @Override
+    public void deleteAllByActivityId(Long activityId) {
+        jpa.deleteByActivityId(activityId);
+    }
 }

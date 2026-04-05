@@ -26,4 +26,9 @@ public interface SubscriptionRepositoryPort {
             LocalTime start,
             LocalTime end,
             Long excludeActivityId);
+
+    /**
+     * Supprime toutes les inscriptions à une activité (désinscription des participants).
+     */
+    void deleteAllByActivityId(Long activityId);
 }

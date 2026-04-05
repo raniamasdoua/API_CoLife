@@ -37,4 +37,6 @@ public interface SubscriptionJpaRepository extends JpaRepository<SubscriptionEnt
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime,
             @Param("excludeActivityId") Long excludeActivityId);
+
+    void deleteByActivityId(Long activityId);
 }
