@@ -23,6 +23,7 @@ import java.time.LocalTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -129,5 +130,27 @@ class ActivityControllerTest {
         activityController.update(principal, 10L, updateDto());
 
         verify(activityUseCase).update(1L, true, 10L, updateDto());
+    }
+
+    @Test
+    void should_return_204_no_content_on_delete() {
+        JwtPrincipal principal = new JwtPrincipal(3L, "u@entreprise.com", Role.COLLABORATOR);
+        doNothing().when(activityUseCase).delete(3L, false, 10L);
+
+        ResponseEntity<Void> response = activityController.delete(principal, 10L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(activityUseCase).delete(3L, false, 10L);
+    }
+
+    @Test
+    void should_pass_is_admin_true_on_delete_for_admin() {
+        JwtPrincipal principal = new JwtPrincipal(1L, "admin@entreprise.com", Role.ADMIN);
+        doNothing().when(activityUseCase).delete(1L, true, 99L);
+
+        activityController.delete(principal, 99L);
+
+        verify(activityUseCase).delete(1L, true, 99L);
     }
 }

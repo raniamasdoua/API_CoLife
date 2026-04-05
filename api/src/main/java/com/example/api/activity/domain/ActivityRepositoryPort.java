@@ -28,4 +28,9 @@ public interface ActivityRepositoryPort {
      * le même jour avec un créneau qui chevauche [start, end].
      */
     boolean existsOverlappingForUsersAsOrganizer(List<Long> userIds, LocalDate date, LocalTime start, LocalTime end, Long excludeActivityId);
+
+    /**
+     * Marque l'activité comme supprimée (soft delete).
+     */
+    void softDelete(Long activityId);
 }

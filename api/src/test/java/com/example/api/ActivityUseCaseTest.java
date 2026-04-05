@@ -39,7 +39,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ActivityUseCaseTest {
@@ -415,5 +418,79 @@ class ActivityUseCaseTest {
         assertThat(result.activityType().name()).isEqualTo("Sport");
         assertThat(result.participantCount()).isEqualTo(1);
         verify(activityRepository).update(any(Activity.class));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Tests : delete()
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private Activity deletedFutureActivity() {
+        return Activity.builder()
+                .id(ACTIVITY_ID).title("Titre").description(null).capacity(10)
+                .location(Location.builder().street("r").postalCode("p").city("c").complement(null).build())
+                .typeId(2L).organizerId(ORGANIZER_ID)
+                .date(LocalDate.of(2026, 3, 30))
+                .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(12, 0))
+                .deleted(true)
+                .build();
+    }
+
+    @Test
+    void should_delete_when_organizer_calls_delete() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+
+        activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID);
+
+        verify(subscriptionRepository).deleteAllByActivityId(ACTIVITY_ID);
+        verify(activityRepository).softDelete(ACTIVITY_ID);
+    }
+
+    @Test
+    void should_delete_when_admin_calls_delete() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+
+        activityUseCase.delete(99L, true, ACTIVITY_ID);
+
+        verify(subscriptionRepository).deleteAllByActivityId(ACTIVITY_ID);
+        verify(activityRepository).softDelete(ACTIVITY_ID);
+    }
+
+    @Test
+    void should_throw_not_found_when_activity_missing_on_delete() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(subscriptionRepository, never()).deleteAllByActivityId(anyLong());
+        verify(activityRepository, never()).softDelete(anyLong());
+    }
+
+    @Test
+    void should_throw_not_found_when_activity_already_soft_deleted() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(deletedFutureActivity()));
+
+        assertThatThrownBy(() -> activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(subscriptionRepository, never()).deleteAllByActivityId(anyLong());
+    }
+
+    @Test
+    void should_throw_forbidden_when_not_organizer_and_not_admin_on_delete() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+
+        assertThatThrownBy(() -> activityUseCase.delete(99L, false, ACTIVITY_ID))
+                .isInstanceOf(ForbiddenException.class);
+        verify(subscriptionRepository, never()).deleteAllByActivityId(anyLong());
+        verify(activityRepository, never()).softDelete(anyLong());
+    }
+
+    @Test
+    void should_throw_when_activity_past_on_delete() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(pastActivity()));
+
+        assertThatThrownBy(() -> activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("passée");
+        verify(subscriptionRepository, never()).deleteAllByActivityId(anyLong());
     }
 }

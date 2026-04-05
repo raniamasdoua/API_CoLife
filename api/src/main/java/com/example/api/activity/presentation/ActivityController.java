@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,6 +47,15 @@ public class ActivityController {
         boolean isAdmin = principal.role() == Role.ADMIN;
         ActivityResponseDto body = activityUseCase.update(principal.userId(), isAdmin, activityId, dto);
         return ResponseEntity.ok(body);
+    }
+
+    @DeleteMapping("/{activityId}")
+    public ResponseEntity<Void> delete(
+            @AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable Long activityId) {
+        boolean isAdmin = principal.role() == Role.ADMIN;
+        activityUseCase.delete(principal.userId(), isAdmin, activityId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/mine")

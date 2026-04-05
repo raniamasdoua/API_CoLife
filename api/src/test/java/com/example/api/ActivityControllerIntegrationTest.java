@@ -29,6 +29,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -499,5 +501,86 @@ class ActivityControllerIntegrationTest {
                         .content(conflictJson))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("participants")));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Tests : DELETE /activities/{activityId}
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    void should_return_204_when_organizer_deletes_own_activity() throws Exception {
+        mockMvc.perform(delete("/activities/" + activityId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        assertThat(activityJpaRepository.findById(activityId)).isPresent();
+        assertThat(activityJpaRepository.findById(activityId).orElseThrow().isDeleted()).isTrue();
+        assertThat(subscriptionJpaRepository.countByActivityId(activityId)).isZero();
+    }
+
+    @Test
+    void should_return_401_when_not_authenticated_for_delete() throws Exception {
+        mockMvc.perform(delete("/activities/" + activityId))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void should_return_403_when_caller_is_not_organizer_for_delete() throws Exception {
+        UserEntity other = new UserEntity("O", "User", "other-del@test.com", "h", Role.COLLABORATOR);
+        other = userJpaRepository.save(other);
+        String otherToken = jwtService.generateToken(other.getId(), other.getEmail(), Role.COLLABORATOR);
+
+        mockMvc.perform(delete("/activities/" + activityId)
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isForbidden());
+
+        assertThat(activityJpaRepository.findById(activityId).orElseThrow().isDeleted()).isFalse();
+    }
+
+    @Test
+    void should_return_204_when_admin_deletes_activity() throws Exception {
+        UserEntity admin = new UserEntity("Ad", "Min", "admin-del@test.com", "h", Role.ADMIN);
+        admin = userJpaRepository.save(admin);
+        String adminToken = jwtService.generateToken(admin.getId(), admin.getEmail(), Role.ADMIN);
+
+        mockMvc.perform(delete("/activities/" + activityId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        assertThat(activityJpaRepository.findById(activityId).orElseThrow().isDeleted()).isTrue();
+    }
+
+    @Test
+    void should_return_404_when_activity_not_found_for_delete() throws Exception {
+        mockMvc.perform(delete("/activities/999999")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void should_return_400_when_deleting_past_activity() throws Exception {
+        LocationEmbeddable loc = new LocationEmbeddable();
+        loc.setStreet("1 rue Passée");
+        loc.setPostalCode("75001");
+        loc.setCity("Paris");
+
+        ActivityEntity past = new ActivityEntity();
+        past.setTitle("Passée");
+        past.setCapacity(5);
+        past.setLocation(loc);
+        past.setOrganizer(userJpaRepository.getReferenceById(userId));
+        past.setType(activityTypeJpaRepository.getReferenceById(activityTypeId));
+        past.setDate(LocalDate.now().minusDays(3));
+        past.setStartTime(LocalTime.of(10, 0));
+        past.setEndTime(LocalTime.of(12, 0));
+        past.setDeleted(false);
+        past = activityJpaRepository.save(past);
+
+        mockMvc.perform(delete("/activities/" + past.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("passée")));
+
+        assertThat(activityJpaRepository.findById(past.getId()).orElseThrow().isDeleted()).isFalse();
     }
 }

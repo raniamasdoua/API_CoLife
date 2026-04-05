@@ -3,6 +3,7 @@ package com.example.api.activity.infrastructure;
 import com.example.api.activity.domain.Activity;
 import com.example.api.activity.domain.ActivityMapper;
 import com.example.api.activity.domain.ActivityRepositoryPort;
+import com.example.api.shared.exception.ResourceNotFoundException;
 import com.example.api.activityType.infrastructure.ActivityTypeJpaRepository;
 import com.example.api.user.infrastructure.UserJpaRepository;
 import org.springframework.stereotype.Component;
@@ -98,6 +99,14 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
             return false;
         }
         return activityJpaRepository.existsOverlappingForUsersAsOrganizer(userIds, date, start, end, excludeActivityId);
+    }
+
+    @Override
+    public void softDelete(Long activityId) {
+        ActivityEntity entity = activityJpaRepository.findById(activityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
+        entity.setDeleted(true);
+        activityJpaRepository.save(entity);
     }
 
 }
