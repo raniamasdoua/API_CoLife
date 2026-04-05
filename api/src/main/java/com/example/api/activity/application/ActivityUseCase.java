@@ -86,7 +86,11 @@ public class ActivityUseCase {
 
         subscriptionRepository.registerParticipant(saved.getId(), organizerId);
 
-        return toResponse(saved, activityType);
+        String organizerName = userRepository.findById(organizerId)
+                .map(u -> u.getFirstName() + " " + u.getLastName())
+                .orElse("Inconnu");
+        int participantCount = subscriptionRepository.countParticipants(saved.getId());
+        return toResponse(saved, activityType, organizerName, participantCount);
     }
 
     @Transactional(readOnly = true)
@@ -103,6 +107,7 @@ public class ActivityUseCase {
 
     private List<ActivityResponseDto> toResponseList(List<Activity> activities) {
         Map<Long, ActivityType> typeCache = new HashMap<>();
+        Map<Long, String> organizerCache = new HashMap<>();
         return activities.stream()
                 .map(activity -> {
                     ActivityType type = typeCache.computeIfAbsent(
@@ -110,12 +115,19 @@ public class ActivityUseCase {
                             id -> activityTypeRepository.findById(id)
                                     .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"))
                     );
-                    return toResponse(activity, type);
+                    String organizerName = organizerCache.computeIfAbsent(
+                            activity.getOrganizerId(),
+                            id -> userRepository.findById(id)
+                                    .map(u -> u.getFirstName() + " " + u.getLastName())
+                                    .orElse("Inconnu")
+                    );
+                    int participantCount = subscriptionRepository.countParticipants(activity.getId());
+                    return toResponse(activity, type, organizerName, participantCount);
                 })
                 .toList();
     }
 
-    private ActivityResponseDto toResponse(Activity activity, ActivityType type) {
+    private ActivityResponseDto toResponse(Activity activity, ActivityType type, String organizerName, int participantCount) {
         LocationDto locationDto = new LocationDto(
                 activity.getLocation().getStreet(),
                 activity.getLocation().getComplement(),
@@ -128,11 +140,13 @@ public class ActivityUseCase {
                 activity.getTitle(),
                 activity.getDescription(),
                 activity.getCapacity(),
+                participantCount,
                 locationDto,
                 typeDto,
                 activity.getDate(),
                 activity.getStartTime(),
-                activity.getEndTime()
+                activity.getEndTime(),
+                organizerName
         );
     }
 }

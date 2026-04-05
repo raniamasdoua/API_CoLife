@@ -8,10 +8,12 @@ public record ActivityResponseDto(
         String title,
         String description,
         int capacity,
+        int participantCount,
         LocationDto location,
         ActivityTypeDto activityType,
         LocalDate date,
         LocalTime startTime,
-        LocalTime endTime
+        LocalTime endTime,
+        String organizerName
 ) {
 }
