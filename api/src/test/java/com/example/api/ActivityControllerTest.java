@@ -52,11 +52,13 @@ class ActivityControllerTest {
                 "Atelier",
                 null,
                 12,
+                1,
                 new LocationDto("5 av", "Bât B", "69000", "Lyon"),
                 new ActivityTypeDto(1L, "Culture"),
                 LocalDate.of(2026, 5, 1),
                 LocalTime.of(15, 0),
-                LocalTime.of(17, 0));
+                LocalTime.of(17, 0),
+                "Organisateur Test");
 
         when(activityUseCase.create(eq(3L), any(CreateActivityRequestDto.class))).thenReturn(responseDto);
 
