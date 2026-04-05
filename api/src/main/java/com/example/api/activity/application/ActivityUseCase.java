@@ -4,13 +4,16 @@ import com.example.api.activity.application.dto.ActivityResponseDto;
 import com.example.api.activity.application.dto.ActivityTypeDto;
 import com.example.api.activity.application.dto.CreateActivityRequestDto;
 import com.example.api.activity.application.dto.LocationDto;
+import com.example.api.activity.application.dto.UpdateActivityRequestDto;
 import com.example.api.activity.domain.Activity;
 import com.example.api.activity.domain.ActivityCreationPolicy;
 import com.example.api.activity.domain.ActivityRepositoryPort;
+import com.example.api.activity.domain.ActivityUpdatePolicy;
 import com.example.api.activity.domain.Location;
 import com.example.api.activityType.domain.ActivityType;
 import com.example.api.activityType.domain.ActivityTypeRepositoryPort;
 import com.example.api.shared.exception.ConflictException;
+import com.example.api.shared.exception.ForbiddenException;
 import com.example.api.shared.exception.ResourceNotFoundException;
 import com.example.api.subscription.domain.SubscriptionRepositoryPort;
 import com.example.api.user.domain.UserRepositoryPort;
@@ -91,6 +94,81 @@ public class ActivityUseCase {
                 .orElse("Inconnu");
         int participantCount = subscriptionRepository.countParticipants(saved.getId());
         return toResponse(saved, activityType, organizerName, participantCount);
+    }
+
+    @Transactional
+    public ActivityResponseDto update(Long callerId, boolean isAdmin, Long activityId, UpdateActivityRequestDto dto) {
+        Activity activity = activityRepository.findById(activityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
+
+        if (!isAdmin && !activity.getOrganizerId().equals(callerId)) {
+            throw new ForbiddenException("Vous n'êtes pas autorisé à modifier cette activité");
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        LocalTime now = LocalTime.now(clock);
+        ActivityUpdatePolicy.validateActivityIsModifiable(activity, today, now);
+
+        ActivityType activityType = activityTypeRepository.findById(dto.activityTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
+
+        int participantCount = subscriptionRepository.countParticipants(activityId);
+        ActivityUpdatePolicy.validateNewSlot(dto.date(), today, now, dto.startTime(), dto.endTime(), dto.capacity(), participantCount);
+
+        List<Long> participantIds = subscriptionRepository.findUserIdsByActivityId(activityId);
+
+        List<Long> participantOnlyIds = participantIds.stream()
+                .filter(id -> !id.equals(activity.getOrganizerId()))
+                .toList();
+
+        boolean organizerConflictAsOrganizer = activityRepository.existsOverlappingForUsersAsOrganizer(
+                List.of(activity.getOrganizerId()), dto.date(), dto.startTime(), dto.endTime(), activityId);
+        boolean organizerConflictAsParticipant = subscriptionRepository.existsConflictingActivityForSubscribedUsers(
+                List.of(activity.getOrganizerId()), dto.date(), dto.startTime(), dto.endTime(), activityId);
+
+        if (organizerConflictAsOrganizer || organizerConflictAsParticipant) {
+            throw new ConflictException("Le nouvel horaire entre en conflit avec une autre activité de l'organisateur");
+        }
+
+        if (!participantOnlyIds.isEmpty()) {
+            boolean participantConflictAsOrganizer = activityRepository.existsOverlappingForUsersAsOrganizer(
+                    participantOnlyIds, dto.date(), dto.startTime(), dto.endTime(), activityId);
+            boolean participantConflictAsParticipant = subscriptionRepository.existsConflictingActivityForSubscribedUsers(
+                    participantOnlyIds, dto.date(), dto.startTime(), dto.endTime(), activityId);
+
+            if (participantConflictAsOrganizer || participantConflictAsParticipant) {
+                throw new ConflictException("Le nouvel horaire entre en conflit avec le planning d'un ou plusieurs participants");
+            }
+        }
+
+        Location location = Location.builder()
+                .street(dto.location().street())
+                .complement(dto.location().complement())
+                .postalCode(dto.location().postalCode())
+                .city(dto.location().city())
+                .build();
+
+        Activity updated = Activity.builder()
+                .id(activity.getId())
+                .title(dto.title())
+                .description(dto.description())
+                .capacity(dto.capacity())
+                .location(location)
+                .typeId(activityType.getId())
+                .organizerId(activity.getOrganizerId())
+                .date(dto.date())
+                .startTime(dto.startTime())
+                .endTime(dto.endTime())
+                .deleted(activity.isDeleted())
+                .build();
+
+        Activity saved = activityRepository.update(updated);
+
+        String organizerName = userRepository.findById(activity.getOrganizerId())
+                .map(u -> u.getFirstName() + " " + u.getLastName())
+                .orElse("Inconnu");
+        int updatedParticipantCount = subscriptionRepository.countParticipants(saved.getId());
+        return toResponse(saved, activityType, organizerName, updatedParticipantCount);
     }
 
     @Transactional(readOnly = true)

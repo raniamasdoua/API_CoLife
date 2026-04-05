@@ -72,8 +72,32 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
     }
 
     @Override
+    public Activity update(Activity activity) {
+        ActivityEntity entity = activityJpaRepository.findById(activity.getId())
+                .orElseThrow(() -> new RuntimeException("Activité non trouvée lors de la mise à jour"));
+        entity.setTitle(activity.getTitle());
+        entity.setDescription(activity.getDescription());
+        entity.setCapacity(activity.getCapacity());
+        entity.setLocation(ActivityMapper.toEmbeddable(activity.getLocation()));
+        entity.setType(activityTypeJpaRepository.getReferenceById(activity.getTypeId()));
+        entity.setDate(activity.getDate());
+        entity.setStartTime(activity.getStartTime());
+        entity.setEndTime(activity.getEndTime());
+        ActivityEntity saved = activityJpaRepository.save(entity);
+        return ActivityMapper.toDomain(saved);
+    }
+
+    @Override
     public boolean existsOverlappingForOrganizer(Long organizerId, LocalDate date, LocalTime start, LocalTime end) {
         return activityJpaRepository.existsOverlappingForOrganizer(organizerId, date, start, end);
+    }
+
+    @Override
+    public boolean existsOverlappingForUsersAsOrganizer(List<Long> userIds, LocalDate date, LocalTime start, LocalTime end, Long excludeActivityId) {
+        if (userIds == null || userIds.isEmpty()) {
+            return false;
+        }
+        return activityJpaRepository.existsOverlappingForUsersAsOrganizer(userIds, date, start, end, excludeActivityId);
     }
 
 }

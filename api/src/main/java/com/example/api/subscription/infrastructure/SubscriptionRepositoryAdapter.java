@@ -3,7 +3,10 @@ package com.example.api.subscription.infrastructure;
 import com.example.api.subscription.domain.SubscriptionRepositoryPort;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 
 @Component
 public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort {
@@ -30,5 +33,19 @@ public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort
     @Override
     public int countParticipants(Long activityId) {
         return jpa.countByActivityId(activityId);
+    }
+
+    @Override
+    public List<Long> findUserIdsByActivityId(Long activityId) {
+        return jpa.findUserIdsByActivityId(activityId);
+    }
+
+    @Override
+    public boolean existsConflictingActivityForSubscribedUsers(
+            List<Long> userIds, LocalDate date, LocalTime start, LocalTime end, Long excludeActivityId) {
+        if (userIds == null || userIds.isEmpty()) {
+            return false;
+        }
+        return jpa.countConflictingActivityForSubscribedUsers(userIds, date, start, end, excludeActivityId) > 0;
     }
 }
