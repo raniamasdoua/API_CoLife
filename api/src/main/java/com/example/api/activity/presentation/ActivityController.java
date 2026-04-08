@@ -4,8 +4,14 @@ import com.example.api.activity.application.ActivityUseCase;
 import com.example.api.activity.application.dto.ActivityResponseDto;
 import com.example.api.activity.application.dto.CreateActivityRequestDto;
 import com.example.api.activity.application.dto.UpdateActivityRequestDto;
+import com.example.api.shared.openapi.OpenApiConfig;
 import com.example.api.shared.security.JwtPrincipal;
 import com.example.api.user.domain.Role;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +29,8 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/activities")
+@Tag(name = "Activités", description = "Gestion des activités (création, modification, suppression, consultation, inscription).")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class ActivityController {
 
     private final ActivityUseCase activityUseCase;
@@ -32,6 +40,16 @@ public class ActivityController {
     }
 
     @PostMapping
+    @Operation(
+            summary = "Créer une activité",
+            description = "Crée une nouvelle activité. L'organisateur est automatiquement inscrit comme participant."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Activité créée"),
+            @ApiResponse(responseCode = "400", description = "Données invalides ou règle métier non respectée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "409", description = "Conflit de planning (créneau déjà occupé)")
+    })
     public ResponseEntity<ActivityResponseDto> create(
             @AuthenticationPrincipal JwtPrincipal principal,
             @Valid @RequestBody CreateActivityRequestDto dto) {
@@ -40,6 +58,18 @@ public class ActivityController {
     }
 
     @PutMapping("/{activityId}")
+    @Operation(
+            summary = "Modifier une activité",
+            description = "Modifie une activité existante (organisateur ou admin). Impossible si l'activité est passée ou en cours."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Activité modifiée"),
+            @ApiResponse(responseCode = "400", description = "Données invalides ou règle métier non respectée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "403", description = "Non autorisé (si non admin et non organisateur)"),
+            @ApiResponse(responseCode = "404", description = "Activité non trouvée"),
+            @ApiResponse(responseCode = "409", description = "Conflit de planning (organisateur/participants)")
+    })
     public ResponseEntity<ActivityResponseDto> update(
             @AuthenticationPrincipal JwtPrincipal principal,
             @PathVariable Long activityId,
@@ -50,6 +80,17 @@ public class ActivityController {
     }
 
     @DeleteMapping("/{activityId}")
+    @Operation(
+            summary = "Supprimer une activité",
+            description = "Supprime une activité (soft delete). Organisateur ou admin uniquement. Impossible si passée/en cours."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Activité supprimée"),
+            @ApiResponse(responseCode = "400", description = "Règle métier non respectée (activité passée/en cours)"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "403", description = "Non autorisé (si non admin et non organisateur)"),
+            @ApiResponse(responseCode = "404", description = "Activité non trouvée")
+    })
     public ResponseEntity<Void> delete(
             @AuthenticationPrincipal JwtPrincipal principal,
             @PathVariable Long activityId) {
@@ -59,15 +100,44 @@ public class ActivityController {
     }
 
     @GetMapping("/mine")
+    @Operation(summary = "Lister mes activités", description = "Retourne les activités dont l'utilisateur est organisateur.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste retournée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise")
+    })
     public ResponseEntity<List<ActivityResponseDto>> getMyActivities(
             @AuthenticationPrincipal JwtPrincipal principal) {
         return ResponseEntity.ok(activityUseCase.getMyActivities(principal.userId()));
     }
 
     @GetMapping("/available")
+    @Operation(summary = "Lister les activités disponibles", description = "Retourne les activités dont l'utilisateur n'est pas organisateur.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste retournée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise")
+    })
     public ResponseEntity<List<ActivityResponseDto>> getAvailableActivities(
             @AuthenticationPrincipal JwtPrincipal principal) {
         return ResponseEntity.ok(activityUseCase.getAvailableActivities(principal.userId()));
+    }
+
+    @PostMapping("/{activityId}/subscribe")
+    @Operation(
+            summary = "S'inscrire à une activité",
+            description = "Inscrit l'utilisateur authentifié à une activité en respectant les règles: activité existante, non supprimée, ouverte à l'inscription, pas de double inscription, capacité, pas de conflit planning (participant ou organisateur)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Inscription effectuée"),
+            @ApiResponse(responseCode = "400", description = "Règle métier non respectée (activité passée/en cours, organisateur, etc.)"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "404", description = "Activité non trouvée"),
+            @ApiResponse(responseCode = "409", description = "Double inscription, capacité atteinte, ou conflit de planning")
+    })
+    public ResponseEntity<ActivityResponseDto> subscribe(
+            @AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable Long activityId) {
+        ActivityResponseDto body = activityUseCase.subscribe(principal.userId(), activityId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
 }
