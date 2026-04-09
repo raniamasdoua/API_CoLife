@@ -19,6 +19,14 @@ public interface ActivityRepositoryPort {
     List<Activity> findByOrganizerIdNot(Long organizerId);
 
     /**
+     * Retourne les activités disponibles pour inscription pour un utilisateur :
+     * - non supprimées
+     * - non passées / non en cours (date > today, ou date == today et startTime > now)
+     * - dont l'utilisateur n'est pas l'organisateur
+     */
+    List<Activity> findAvailableForUser(Long userId, LocalDate today, LocalTime now);
+
+    /**
      * Vérifie si l'organisateur a déjà une activité non supprimée le même jour avec un créneau qui chevauche [start, end].
      */
     boolean existsOverlappingForOrganizer(Long organizerId, LocalDate date, LocalTime start, LocalTime end);

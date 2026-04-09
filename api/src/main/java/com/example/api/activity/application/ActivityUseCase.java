@@ -204,7 +204,9 @@ public class ActivityUseCase {
 
     @Transactional(readOnly = true)
     public List<ActivityResponseDto> getAvailableActivities(Long userId) {
-        List<Activity> activities = activityRepository.findByOrganizerIdNot(userId);
+        LocalDate today = LocalDate.now(clock);
+        LocalTime now = LocalTime.now(clock);
+        List<Activity> activities = activityRepository.findAvailableForUser(userId, today, now);
         return toResponseList(activities);
     }
 
