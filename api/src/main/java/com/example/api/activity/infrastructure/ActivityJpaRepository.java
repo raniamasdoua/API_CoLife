@@ -27,6 +27,21 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
     List<ActivityEntity> findByOrganizerIdNotAndNotDeleted(@Param("organizerId") Long organizerId);
 
     @Query("""
+            select a from ActivityEntity a
+            join fetch a.type
+            where a.organizer.id <> :userId
+              and a.isDeleted = false
+              and (
+                    a.date > :today
+                 or (a.date = :today and a.startTime > :now)
+              )
+            """)
+    List<ActivityEntity> findAvailableForUser(
+            @Param("userId") Long userId,
+            @Param("today") LocalDate today,
+            @Param("now") LocalTime now);
+
+    @Query("""
             select case when count(a) > 0 then true else false end
             from ActivityEntity a
             where a.organizer.id = :organizerId

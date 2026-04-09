@@ -73,6 +73,13 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
     }
 
     @Override
+    public List<Activity> findAvailableForUser(Long userId, LocalDate today, LocalTime now) {
+        return activityJpaRepository.findAvailableForUser(userId, today, now).stream()
+                .map(ActivityMapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public Activity update(Activity activity) {
         ActivityEntity entity = activityJpaRepository.findById(activity.getId())
                 .orElseThrow(() -> new RuntimeException("Activité non trouvée lors de la mise à jour"));
