@@ -8,12 +8,14 @@ import com.example.api.activity.application.dto.UpdateActivityRequestDto;
 import com.example.api.activity.domain.Activity;
 import com.example.api.activity.domain.ActivityCreationPolicy;
 import com.example.api.activity.domain.ActivityRepositoryPort;
+import com.example.api.activity.domain.ActivitySubscriptionPolicy;
 import com.example.api.activity.domain.ActivityUpdatePolicy;
 import com.example.api.activity.domain.Location;
 import com.example.api.activityType.domain.ActivityType;
 import com.example.api.activityType.domain.ActivityTypeRepositoryPort;
 import com.example.api.shared.exception.ConflictException;
 import com.example.api.shared.exception.ForbiddenException;
+import com.example.api.shared.exception.BusinessException;
 import com.example.api.shared.exception.ResourceNotFoundException;
 import com.example.api.subscription.domain.SubscriptionRepositoryPort;
 import com.example.api.user.domain.UserRepositoryPort;
@@ -26,6 +28,7 @@ import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class ActivityUseCase {
@@ -201,9 +204,116 @@ public class ActivityUseCase {
     }
 
     @Transactional(readOnly = true)
-    public List<ActivityResponseDto> getAvailableActivities(Long userId) {
-        List<Activity> activities = activityRepository.findByOrganizerIdNot(userId);
+    public List<ActivityResponseDto> getRegisteredActivities(Long userId) {
+        List<Activity> activities = activityRepository.findSubscribedAsNonOrganizer(userId);
         return toResponseList(activities);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityResponseDto> getAvailableActivities(Long userId) {
+        LocalDate today = LocalDate.now(clock);
+        LocalTime now = LocalTime.now(clock);
+        List<Activity> activities = activityRepository.findAvailableForUser(userId, today, now);
+        // Garantie métier : jamais les activités dont l'utilisateur connecté est l'organisateur
+        // (la requête l'applique déjà ; filtre défensif si données incohérentes).
+        List<Activity> withoutOwn = activities.stream()
+                .filter(a -> !Objects.equals(a.getOrganizerId(), userId))
+                .toList();
+        return toResponseList(withoutOwn);
+    }
+
+    @Transactional
+    public ActivityResponseDto subscribe(Long userId, Long activityId) {
+        userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        Activity activity = activityRepository.findById(activityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
+        if (activity.isDeleted()) {
+            throw new ResourceNotFoundException("Activité non trouvée");
+        }
+
+        if (activity.getOrganizerId().equals(userId)) {
+            throw new BusinessException("Vous ne pouvez pas vous inscrire à votre propre activité");
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        LocalTime now = LocalTime.now(clock);
+        ActivitySubscriptionPolicy.validateActivityIsOpenForSubscription(activity, today, now);
+
+        if (subscriptionRepository.existsByActivityIdAndUserId(activityId, userId)) {
+            throw new ConflictException("Vous êtes déjà inscrit à cette activité");
+        }
+
+        int participantCount = subscriptionRepository.countParticipants(activityId);
+        if (participantCount >= activity.getCapacity()) {
+            throw new ConflictException("Capacité maximale atteinte pour cette activité");
+        }
+
+        boolean conflictAsOrganizer = activityRepository.existsOverlappingForUsersAsOrganizer(
+                List.of(userId),
+                activity.getDate(),
+                activity.getStartTime(),
+                activity.getEndTime(),
+                activityId
+        );
+        boolean conflictAsParticipant = subscriptionRepository.existsConflictingActivityForSubscribedUsers(
+                List.of(userId),
+                activity.getDate(),
+                activity.getStartTime(),
+                activity.getEndTime(),
+                activityId
+        );
+
+        if (conflictAsOrganizer || conflictAsParticipant) {
+            throw new ConflictException("Cette activité entre en conflit avec une autre activité de votre planning");
+        }
+
+        subscriptionRepository.registerParticipant(activityId, userId);
+
+        ActivityType type = activityTypeRepository.findById(activity.getTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
+        String organizerName = userRepository.findById(activity.getOrganizerId())
+                .map(u -> u.getFirstName() + " " + u.getLastName())
+                .orElse("Inconnu");
+        int updatedParticipantCount = subscriptionRepository.countParticipants(activityId);
+        return toResponse(activity, type, organizerName, updatedParticipantCount);
+    }
+
+    @Transactional
+    public ActivityResponseDto unsubscribe(Long userId, Long activityId) {
+        Activity activity = activityRepository.findById(activityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
+        if (activity.isDeleted()) {
+            throw new ResourceNotFoundException("Activité non trouvée");
+        }
+
+        if (activity.getOrganizerId().equals(userId)) {
+            throw new BusinessException(
+                    "Vous ne pouvez pas vous désinscrire en tant qu'organisateur de votre propre activité");
+        }
+
+        if (!subscriptionRepository.existsByActivityIdAndUserId(activityId, userId)) {
+            throw new BusinessException("Vous n'êtes pas inscrit à cette activité");
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        LocalTime now = LocalTime.now(clock);
+        ActivitySubscriptionPolicy.validateActivityAllowsUnsubscribe(activity, today, now);
+
+        try {
+            subscriptionRepository.unsubscribeParticipant(activityId, userId);
+        } catch (IllegalStateException ex) {
+            throw new BusinessException("Impossible de finaliser la désinscription");
+        }
+
+        ActivityType type = activityTypeRepository.findById(activity.getTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
+        String organizerName = userRepository.findById(activity.getOrganizerId())
+                .map(u -> u.getFirstName() + " " + u.getLastName())
+                .orElse("Inconnu");
+        int updatedParticipantCount = subscriptionRepository.countParticipants(activityId);
+        return toResponse(activity, type, organizerName, updatedParticipantCount);
     }
 
     private List<ActivityResponseDto> toResponseList(List<Activity> activities) {

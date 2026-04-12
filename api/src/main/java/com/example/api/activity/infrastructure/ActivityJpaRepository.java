@@ -26,6 +26,40 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
             """)
     List<ActivityEntity> findByOrganizerIdNotAndNotDeleted(@Param("organizerId") Long organizerId);
 
+    /**
+     * Activités "à découvrir" pour un utilisateur : pas les siennes en tant qu'organisateur,
+     * non supprimées, pas déjà inscrit, et encore ouvertes à l'inscription (pas passées / pas commencées).
+     */
+    @Query("""
+            select a from ActivityEntity a
+            join fetch a.type
+            where a.organizer.id <> :userId
+              and a.isDeleted = false
+              and a.id not in (select s.activityId from SubscriptionEntity s where s.userId = :userId and s.unsubscribedAt is null)
+              and (
+                    a.date > :today
+                 or (a.date = :today and a.startTime > :now)
+              )
+            """)
+    List<ActivityEntity> findAvailableForUser(
+            @Param("userId") Long userId,
+            @Param("today") LocalDate today,
+            @Param("now") LocalTime now);
+
+    /**
+     * Activités auxquelles l'utilisateur est inscrit en tant que participant,
+     * hors celles qu'il organise lui-même (l'organisateur est aussi inscrit mais ne doit pas apparaître ici).
+     */
+    @Query("""
+            select distinct a from ActivityEntity a
+            join fetch a.type
+            where a.isDeleted = false
+              and a.organizer.id <> :userId
+              and a.id in (select s.activityId from SubscriptionEntity s where s.userId = :userId and s.unsubscribedAt is null)
+            order by a.date asc, a.startTime asc
+            """)
+    List<ActivityEntity> findSubscribedAsNonOrganizer(@Param("userId") Long userId);
+
     @Query("""
             select case when count(a) > 0 then true else false end
             from ActivityEntity a

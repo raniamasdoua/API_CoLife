@@ -5,9 +5,15 @@ import java.time.LocalTime;
 import java.util.List;
 
 public interface SubscriptionRepositoryPort {
+    /** Inscription encore active (pas désinscrit). */
     boolean existsByActivityIdAndUserId(Long activityId, Long userId);
 
     void registerParticipant(Long activityId, Long userId);
+
+    /**
+     * Désinscription volontaire : renseigne {@code unsubscribed_at} sans supprimer la ligne.
+     */
+    void unsubscribeParticipant(Long activityId, Long userId);
 
     int countParticipants(Long activityId);
 

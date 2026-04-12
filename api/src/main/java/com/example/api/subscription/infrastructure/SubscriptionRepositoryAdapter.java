@@ -18,21 +18,45 @@ public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort
 
     @Override
     public boolean existsByActivityIdAndUserId(Long activityId, Long userId) {
-        return jpa.existsByActivityIdAndUserId(activityId, userId);
+        return jpa.existsByActivityIdAndUserIdAndUnsubscribedAtIsNull(activityId, userId);
     }
 
     @Override
     public void registerParticipant(Long activityId, Long userId) {
-        SubscriptionEntity entity = new SubscriptionEntity();
-        entity.setActivityId(activityId);
-        entity.setUserId(userId);
-        entity.setSubscribedAt(LocalDateTime.now());
+        jpa.findByActivityIdAndUserId(activityId, userId).ifPresentOrElse(
+                entity -> {
+                    if (entity.getUnsubscribedAt() == null) {
+                        throw new IllegalStateException("Inscription déjà active");
+                    }
+                    entity.setUnsubscribedAt(null);
+                    entity.setSubscribedAt(LocalDateTime.now());
+                    jpa.save(entity);
+                },
+                () -> {
+                    SubscriptionEntity entity = new SubscriptionEntity();
+                    entity.setActivityId(activityId);
+                    entity.setUserId(userId);
+                    entity.setSubscribedAt(LocalDateTime.now());
+                    entity.setUnsubscribedAt(null);
+                    jpa.save(entity);
+                }
+        );
+    }
+
+    @Override
+    public void unsubscribeParticipant(Long activityId, Long userId) {
+        SubscriptionEntity entity = jpa.findByActivityIdAndUserId(activityId, userId)
+                .orElseThrow(() -> new IllegalStateException("Aucune inscription pour cette activité"));
+        if (entity.getUnsubscribedAt() != null) {
+            throw new IllegalStateException("Inscription déjà annulée");
+        }
+        entity.setUnsubscribedAt(LocalDateTime.now());
         jpa.save(entity);
     }
 
     @Override
     public int countParticipants(Long activityId) {
-        return jpa.countByActivityId(activityId);
+        return jpa.countActiveByActivityId(activityId);
     }
 
     @Override
