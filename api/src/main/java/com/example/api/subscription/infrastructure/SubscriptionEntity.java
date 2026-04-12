@@ -19,4 +19,8 @@ public class SubscriptionEntity {
     private Long activityId;
     private Long userId;
     private LocalDateTime subscribedAt;
+
+    /** Renseigné lors d'une désinscription volontaire (traçabilité, pas de suppression physique). */
+    @Column(name = "unsubscribed_at")
+    private LocalDateTime unsubscribedAt;
 }

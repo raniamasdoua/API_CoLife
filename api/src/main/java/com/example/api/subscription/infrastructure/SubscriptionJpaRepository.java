@@ -7,13 +7,18 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface SubscriptionJpaRepository extends JpaRepository<SubscriptionEntity, Long> {
-    boolean existsByActivityIdAndUserId(Long activityId, Long userId);
+    /** Inscription active : pas de date de désinscription */
+    boolean existsByActivityIdAndUserIdAndUnsubscribedAtIsNull(Long activityId, Long userId);
 
-    int countByActivityId(Long activityId);
+    Optional<SubscriptionEntity> findByActivityIdAndUserId(Long activityId, Long userId);
 
-    @Query("select s.userId from SubscriptionEntity s where s.activityId = :activityId")
+    @Query("select count(s) from SubscriptionEntity s where s.activityId = :activityId and s.unsubscribedAt is null")
+    int countActiveByActivityId(@Param("activityId") Long activityId);
+
+    @Query("select s.userId from SubscriptionEntity s where s.activityId = :activityId and s.unsubscribedAt is null")
     List<Long> findUserIdsByActivityId(@Param("activityId") Long activityId);
 
     /**
@@ -25,6 +30,7 @@ public interface SubscriptionJpaRepository extends JpaRepository<SubscriptionEnt
             FROM subscriptions s
             INNER JOIN activities a ON s.activity_id = a.id
             WHERE s.user_id IN :userIds
+              AND s.unsubscribed_at IS NULL
               AND a.is_deleted = false
               AND a.id <> :excludeActivityId
               AND a.date = :date

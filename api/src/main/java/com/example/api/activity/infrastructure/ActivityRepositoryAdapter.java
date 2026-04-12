@@ -80,6 +80,13 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
     }
 
     @Override
+    public List<Activity> findSubscribedAsNonOrganizer(Long userId) {
+        return activityJpaRepository.findSubscribedAsNonOrganizer(userId).stream()
+                .map(ActivityMapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public Activity update(Activity activity) {
         ActivityEntity entity = activityJpaRepository.findById(activity.getId())
                 .orElseThrow(() -> new RuntimeException("Activité non trouvée lors de la mise à jour"));

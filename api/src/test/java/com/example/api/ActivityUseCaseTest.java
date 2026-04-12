@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -492,5 +493,50 @@ class ActivityUseCaseTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("passée");
         verify(subscriptionRepository, never()).deleteAllByActivityId(anyLong());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Tests : unsubscribe()
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    void should_unsubscribe_participant_and_return_updated_count() {
+        Long participantId = 42L;
+        ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, participantId)).thenReturn(true);
+        doNothing().when(subscriptionRepository).unsubscribeParticipant(ACTIVITY_ID, participantId);
+        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(3);
+
+        ActivityResponseDto result = activityUseCase.unsubscribe(participantId, ACTIVITY_ID);
+
+        assertThat(result.participantCount()).isEqualTo(3);
+        verify(subscriptionRepository).unsubscribeParticipant(ACTIVITY_ID, participantId);
+    }
+
+    @Test
+    void should_reject_unsubscribe_when_organizer() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+
+        assertThatThrownBy(() -> activityUseCase.unsubscribe(ORGANIZER_ID, ACTIVITY_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("organisateur");
+
+        verify(subscriptionRepository, never()).unsubscribeParticipant(anyLong(), anyLong());
+    }
+
+    @Test
+    void should_reject_unsubscribe_when_not_subscribed() {
+        Long participantId = 42L;
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, participantId)).thenReturn(false);
+
+        assertThatThrownBy(() -> activityUseCase.unsubscribe(participantId, ACTIVITY_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("n'êtes pas inscrit");
+
+        verify(subscriptionRepository, never()).unsubscribeParticipant(anyLong(), anyLong());
     }
 }
