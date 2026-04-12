@@ -515,7 +515,7 @@ class ActivityControllerIntegrationTest {
 
         assertThat(activityJpaRepository.findById(activityId)).isPresent();
         assertThat(activityJpaRepository.findById(activityId).orElseThrow().isDeleted()).isTrue();
-        assertThat(subscriptionJpaRepository.countByActivityId(activityId)).isZero();
+        assertThat(subscriptionJpaRepository.countActiveByActivityId(activityId)).isZero();
     }
 
     @Test
