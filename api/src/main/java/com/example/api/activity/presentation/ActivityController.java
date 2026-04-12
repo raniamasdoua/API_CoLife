@@ -110,8 +110,29 @@ public class ActivityController {
         return ResponseEntity.ok(activityUseCase.getMyActivities(principal.userId()));
     }
 
+    @GetMapping("/registered")
+    @Operation(
+            summary = "Lister mes inscriptions (hors activités que j'organise)",
+            description = "Retourne les activités auxquelles l'utilisateur est inscrit en tant que participant, "
+                    + "sans celles dont il est l'organisateur."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste retournée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise")
+    })
+    public ResponseEntity<List<ActivityResponseDto>> getRegisteredActivities(
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        return ResponseEntity.ok(activityUseCase.getRegisteredActivities(principal.userId()));
+    }
+
     @GetMapping("/available")
-    @Operation(summary = "Lister les activités disponibles", description = "Retourne les activités dont l'utilisateur n'est pas organisateur.")
+    @Operation(
+            summary = "Lister les activités disponibles",
+            description = "Retourne les activités auxquelles l'utilisateur peut s'inscrire : "
+                    + "non supprimées, à venir (pas passées / pas encore commencées), "
+                    + "dont l'utilisateur connecté n'est pas l'organisateur, "
+                    + "et auxquelles il n'est pas déjà inscrit."
+    )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Liste retournée"),
             @ApiResponse(responseCode = "401", description = "Authentification requise")
@@ -138,6 +159,25 @@ public class ActivityController {
             @PathVariable Long activityId) {
         ActivityResponseDto body = activityUseCase.subscribe(principal.userId(), activityId);
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
+    }
+
+    @DeleteMapping("/{activityId}/subscribe")
+    @Operation(
+            summary = "Se désinscrire d'une activité",
+            description = "Retire l'utilisateur authentifié des participants (soft delete avec date de désinscription). "
+                    + "Impossible pour l'organisateur, si non inscrit, ou si l'activité a déjà commencé / est passée."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Désinscription effectuée, détail activité avec effectif à jour"),
+            @ApiResponse(responseCode = "400", description = "Règle métier non respectée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "404", description = "Activité non trouvée")
+    })
+    public ResponseEntity<ActivityResponseDto> unsubscribe(
+            @AuthenticationPrincipal JwtPrincipal principal,
+            @PathVariable Long activityId) {
+        ActivityResponseDto body = activityUseCase.unsubscribe(principal.userId(), activityId);
+        return ResponseEntity.ok(body);
     }
 
 }

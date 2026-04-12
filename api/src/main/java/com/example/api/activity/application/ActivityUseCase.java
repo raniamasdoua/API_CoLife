@@ -28,6 +28,7 @@ import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class ActivityUseCase {
@@ -203,11 +204,22 @@ public class ActivityUseCase {
     }
 
     @Transactional(readOnly = true)
+    public List<ActivityResponseDto> getRegisteredActivities(Long userId) {
+        List<Activity> activities = activityRepository.findSubscribedAsNonOrganizer(userId);
+        return toResponseList(activities);
+    }
+
+    @Transactional(readOnly = true)
     public List<ActivityResponseDto> getAvailableActivities(Long userId) {
         LocalDate today = LocalDate.now(clock);
         LocalTime now = LocalTime.now(clock);
         List<Activity> activities = activityRepository.findAvailableForUser(userId, today, now);
-        return toResponseList(activities);
+        // Garantie métier : jamais les activités dont l'utilisateur connecté est l'organisateur
+        // (la requête l'applique déjà ; filtre défensif si données incohérentes).
+        List<Activity> withoutOwn = activities.stream()
+                .filter(a -> !Objects.equals(a.getOrganizerId(), userId))
+                .toList();
+        return toResponseList(withoutOwn);
     }
 
     @Transactional
@@ -258,6 +270,42 @@ public class ActivityUseCase {
         }
 
         subscriptionRepository.registerParticipant(activityId, userId);
+
+        ActivityType type = activityTypeRepository.findById(activity.getTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
+        String organizerName = userRepository.findById(activity.getOrganizerId())
+                .map(u -> u.getFirstName() + " " + u.getLastName())
+                .orElse("Inconnu");
+        int updatedParticipantCount = subscriptionRepository.countParticipants(activityId);
+        return toResponse(activity, type, organizerName, updatedParticipantCount);
+    }
+
+    @Transactional
+    public ActivityResponseDto unsubscribe(Long userId, Long activityId) {
+        Activity activity = activityRepository.findById(activityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
+        if (activity.isDeleted()) {
+            throw new ResourceNotFoundException("Activité non trouvée");
+        }
+
+        if (activity.getOrganizerId().equals(userId)) {
+            throw new BusinessException(
+                    "Vous ne pouvez pas vous désinscrire en tant qu'organisateur de votre propre activité");
+        }
+
+        if (!subscriptionRepository.existsByActivityIdAndUserId(activityId, userId)) {
+            throw new BusinessException("Vous n'êtes pas inscrit à cette activité");
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        LocalTime now = LocalTime.now(clock);
+        ActivitySubscriptionPolicy.validateActivityAllowsUnsubscribe(activity, today, now);
+
+        try {
+            subscriptionRepository.unsubscribeParticipant(activityId, userId);
+        } catch (IllegalStateException ex) {
+            throw new BusinessException("Impossible de finaliser la désinscription");
+        }
 
         ActivityType type = activityTypeRepository.findById(activity.getTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
