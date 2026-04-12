@@ -1,3 +1,17 @@
+  ## v0.2.0 - 2026-04-12
+
+  ### 🚀 Features
+  git log v0.2.0..HEAD --pretty=format:"%s" | grep "^feat" | sed 's/^/- /' || true
+
+  ### 🐛 Fixes
+  git log v0.2.0..HEAD --pretty=format:"%s" | grep "^fix" | sed 's/^/- /' || true
+  
+
+  ### 🔧 Others
+  git log v0.2.0..HEAD --pretty=format:"%s" | grep -E "^(chore|docs|refactor|test)" | sed 's/^/- /' || true
+
+  ---
+
 # Changelog
 
 ## v0.2.0 - 2026-04-05
