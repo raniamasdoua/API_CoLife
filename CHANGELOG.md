@@ -1,3 +1,15 @@
+# Changelog
+
+## v0.2.1 - 2026-04-18
+
+### 🐛 Fixes
+- fix generation du changelog
+
+### 🔧 Others
+- chore(release): v0.2.0
+
+---
+
   ## v0.2.0 - 2026-04-12
 
   ### 🚀 Features
