@@ -11,4 +11,8 @@ public interface ActivityTypeRepositoryPort {
     List<ActivityType> findAll();
 
     boolean existsByName(String name);
+
+    void deleteById(Long id);
+
+    long count();
 }
