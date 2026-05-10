@@ -18,7 +18,15 @@ public class ActivityTypeRepositoryAdapter implements ActivityTypeRepositoryPort
 
     @Override
     public ActivityType save(ActivityType activityType) {
-        ActivityTypeEntity entity = new ActivityTypeEntity();
+        ActivityTypeEntity entity;
+        if (activityType.getId() != null) {
+            // Le use-case garantit l'existence sur update ; ici on évite de créer une entité par erreur.
+            entity = activityTypeJpaRepository.findById(activityType.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("ActivityTypeEntity introuvable pour update"));
+        } else {
+            entity = new ActivityTypeEntity();
+        }
+
         entity.setName(activityType.getName());
         ActivityTypeEntity saved = activityTypeJpaRepository.save(entity);
         return ActivityTypeMapper.toDomain(saved);
@@ -38,6 +46,16 @@ public class ActivityTypeRepositoryAdapter implements ActivityTypeRepositoryPort
 
     @Override
     public boolean existsByName(String name) {
-        return activityTypeJpaRepository.existsByName(name);
+        return activityTypeJpaRepository.existsByNameIgnoreCase(name);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        activityTypeJpaRepository.deleteById(id);
+    }
+
+    @Override
+    public long count() {
+        return activityTypeJpaRepository.count();
     }
 }

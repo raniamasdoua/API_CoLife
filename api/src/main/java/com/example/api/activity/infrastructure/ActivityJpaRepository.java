@@ -91,4 +91,12 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime,
             @Param("excludeActivityId") Long excludeActivityId);
+
+    @Query("""
+            select case when count(a) > 0 then true else false end
+            from ActivityEntity a
+            where a.type.id = :typeId
+              and a.isDeleted = false
+            """)
+    boolean existsNonDeletedByActivityTypeId(@Param("typeId") Long typeId);
 }
