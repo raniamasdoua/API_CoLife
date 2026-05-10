@@ -3,6 +3,7 @@ package com.example.api.activityType.application;
 import com.example.api.activityType.application.dto.ActivityTypeCountDto;
 import com.example.api.activityType.application.dto.ActivityTypeRequestDto;
 import com.example.api.activityType.application.dto.ActivityTypeResponseDto;
+import com.example.api.activity.domain.ActivityRepositoryPort;
 import com.example.api.activityType.domain.ActivityType;
 import com.example.api.activityType.domain.ActivityTypeRepositoryPort;
 import com.example.api.shared.exception.ConflictException;
@@ -16,9 +17,13 @@ import java.util.List;
 public class ActivityTypeUseCase {
 
     private final ActivityTypeRepositoryPort repository;
+    private final ActivityRepositoryPort activityRepository;
 
-    public ActivityTypeUseCase(ActivityTypeRepositoryPort repository) {
+    public ActivityTypeUseCase(
+            ActivityTypeRepositoryPort repository,
+            ActivityRepositoryPort activityRepository) {
         this.repository = repository;
+        this.activityRepository = activityRepository;
     }
 
     public List<ActivityTypeResponseDto> findAll() {
@@ -71,6 +76,10 @@ public class ActivityTypeUseCase {
     public void delete(Long id) {
         if (repository.findById(id).isEmpty()) {
             throw new ResourceNotFoundException("Type d'activité introuvable");
+        }
+        if (activityRepository.existsNonDeletedByActivityTypeId(id)) {
+            throw new ConflictException(
+                    "Impossible de supprimer ce type : des activités non supprimées l'utilisent encore.");
         }
         repository.deleteById(id);
     }

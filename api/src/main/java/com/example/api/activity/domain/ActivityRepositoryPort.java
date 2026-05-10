@@ -46,4 +46,9 @@ public interface ActivityRepositoryPort {
      * Marque l'activité comme supprimée (soft delete).
      */
     void softDelete(Long activityId);
+
+    /**
+     * Indique si au moins une activité non supprimée référence ce type d'activité.
+     */
+    boolean existsNonDeletedByActivityTypeId(Long activityTypeId);
 }

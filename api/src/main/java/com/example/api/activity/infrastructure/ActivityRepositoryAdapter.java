@@ -123,4 +123,9 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
         activityJpaRepository.save(entity);
     }
 
+    @Override
+    public boolean existsNonDeletedByActivityTypeId(Long activityTypeId) {
+        return activityJpaRepository.existsNonDeletedByActivityTypeId(activityTypeId);
+    }
+
 }

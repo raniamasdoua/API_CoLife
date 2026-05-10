@@ -107,7 +107,8 @@ public class ActivityTypeController {
             @ApiResponse(responseCode = "204", description = "Type d'activité supprimé"),
             @ApiResponse(responseCode = "401", description = "Authentification requise"),
             @ApiResponse(responseCode = "403", description = "Réservé aux admins"),
-            @ApiResponse(responseCode = "404", description = "Type d'activité non trouvé")
+            @ApiResponse(responseCode = "404", description = "Type d'activité non trouvé"),
+            @ApiResponse(responseCode = "409", description = "Type encore utilisé par des activités non supprimées")
     })
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         activityTypeUseCase.delete(id);
