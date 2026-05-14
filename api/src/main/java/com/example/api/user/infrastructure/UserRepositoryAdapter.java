@@ -37,6 +37,11 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         return UserMapper.toDomain(savedEntity);
     }
 
+    @Override
+    public long countAll() {
+        return jpaRepository.count();
+    }
+
     /**
      * Met à jour uniquement les champs modifiables (bio, phone, address)
      * d'un utilisateur existant.

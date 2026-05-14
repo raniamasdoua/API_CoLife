@@ -16,6 +16,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/user")
 @Tag(name = "Utilisateurs", description = "Consultation et mise à jour du profil utilisateur.")
@@ -26,6 +28,21 @@ public class UserController {
 
     public UserController(UserUseCase userUseCase) {
         this.userUseCase = userUseCase;
+    }
+
+    @GetMapping("/count")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Nombre total d'utilisateurs (admin)",
+            description = "Retourne le nombre total d'utilisateurs enregistrés. Réservé aux administrateurs."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Comptage retourné"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "403", description = "Droits admin requis")
+    })
+    public ResponseEntity<Map<String, Long>> countUsers() {
+        return ResponseEntity.ok(Map.of("count", userUseCase.countUsers()));
     }
 
     /**

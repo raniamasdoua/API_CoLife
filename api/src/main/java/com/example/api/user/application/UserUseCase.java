@@ -22,6 +22,11 @@ public class UserUseCase {
         return userRepository.findByEmail(email);
     }
 
+    /** Retourne le nombre total d'utilisateurs enregistrés. */
+    public long countUsers() {
+        return userRepository.countAll();
+    }
+
     /** Retourne le profil complet d'un utilisateur. */
     public UserResponseDto getUserById(Long userId) {
         User user = userRepository.findById(userId)

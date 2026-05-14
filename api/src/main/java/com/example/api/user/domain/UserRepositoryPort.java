@@ -7,4 +7,5 @@ public interface UserRepositoryPort {
     Optional<User> findByEmail(String email);
     User save(User user);
     User update(User user);
+    long countAll();
 }
