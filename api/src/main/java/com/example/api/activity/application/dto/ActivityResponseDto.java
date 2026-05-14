@@ -14,6 +14,7 @@ public record ActivityResponseDto(
         LocalDate date,
         LocalTime startTime,
         LocalTime endTime,
-        String organizerName
+        String organizerName,
+        boolean deleted
 ) {
 }

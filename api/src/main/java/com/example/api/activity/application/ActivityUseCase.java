@@ -4,6 +4,7 @@ import com.example.api.activity.application.dto.ActivityResponseDto;
 import com.example.api.activity.application.dto.ActivityTypeDto;
 import com.example.api.activity.application.dto.CreateActivityRequestDto;
 import com.example.api.activity.application.dto.LocationDto;
+import com.example.api.activity.application.dto.ParticipantDto;
 import com.example.api.activity.application.dto.UpdateActivityRequestDto;
 import com.example.api.activity.domain.Activity;
 import com.example.api.activity.domain.ActivityCreationPolicy;
@@ -57,7 +58,7 @@ public class ActivityUseCase {
         userRepository.findById(organizerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 
-        ActivityType activityType = activityTypeRepository.findById(dto.activityTypeId())
+        ActivityType activityType = activityTypeRepository.findActiveById(dto.activityTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
 
         LocalDate today = LocalDate.now(clock);
@@ -115,7 +116,7 @@ public class ActivityUseCase {
         LocalTime now = LocalTime.now(clock);
         ActivityUpdatePolicy.validateActivityIsModifiable(activity, today, now);
 
-        ActivityType activityType = activityTypeRepository.findById(dto.activityTypeId())
+        ActivityType activityType = activityTypeRepository.findActiveById(dto.activityTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
 
         int participantCount = subscriptionRepository.countParticipants(activityId);
@@ -198,6 +199,27 @@ public class ActivityUseCase {
     }
 
     @Transactional(readOnly = true)
+    public List<ParticipantDto> getParticipants(Long activityId) {
+        List<Long> userIds = subscriptionRepository.findUserIdsByActivityId(activityId);
+        return userIds.stream()
+                .filter(Objects::nonNull)
+                .map(uid -> userRepository.findById(uid)
+                        .map(u -> new ParticipantDto(u.getId(), u.getFirstName(), u.getLastName(), u.getEmail()))
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityResponseDto> getAllActivities(boolean includeDeleted) {
+        List<Activity> activities = activityRepository.findAll();
+        if (!includeDeleted) {
+            activities = activities.stream().filter(a -> !a.isDeleted()).toList();
+        }
+        return toResponseList(activities);
+    }
+
+    @Transactional(readOnly = true)
     public List<ActivityResponseDto> getMyActivities(Long userId) {
         List<Activity> activities = activityRepository.findByOrganizerId(userId);
         return toResponseList(activities);
@@ -271,7 +293,7 @@ public class ActivityUseCase {
 
         subscriptionRepository.registerParticipant(activityId, userId);
 
-        ActivityType type = activityTypeRepository.findById(activity.getTypeId())
+        ActivityType type = activityTypeRepository.findByIdIncludingDeleted(activity.getTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
         String organizerName = userRepository.findById(activity.getOrganizerId())
                 .map(u -> u.getFirstName() + " " + u.getLastName())
@@ -307,7 +329,7 @@ public class ActivityUseCase {
             throw new BusinessException("Impossible de finaliser la désinscription");
         }
 
-        ActivityType type = activityTypeRepository.findById(activity.getTypeId())
+        ActivityType type = activityTypeRepository.findByIdIncludingDeleted(activity.getTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
         String organizerName = userRepository.findById(activity.getOrganizerId())
                 .map(u -> u.getFirstName() + " " + u.getLastName())
@@ -323,7 +345,7 @@ public class ActivityUseCase {
                 .map(activity -> {
                     ActivityType type = typeCache.computeIfAbsent(
                             activity.getTypeId(),
-                            id -> activityTypeRepository.findById(id)
+                            id -> activityTypeRepository.findByIdIncludingDeleted(id)
                                     .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"))
                     );
                     String organizerName = organizerCache.computeIfAbsent(
@@ -357,7 +379,8 @@ public class ActivityUseCase {
                 activity.getDate(),
                 activity.getStartTime(),
                 activity.getEndTime(),
-                organizerName
+                organizerName,
+                activity.isDeleted()
         );
     }
 }
