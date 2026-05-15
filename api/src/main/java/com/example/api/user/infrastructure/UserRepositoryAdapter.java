@@ -6,7 +6,9 @@ import com.example.api.user.domain.UserMapper;
 import com.example.api.user.domain.UserRepositoryPort;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 public class UserRepositoryAdapter implements UserRepositoryPort {
@@ -38,8 +40,23 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     }
 
     @Override
+    public List<User> findAll() {
+        return jpaRepository.findAll().stream()
+                .map(UserMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public long countAll() {
         return jpaRepository.count();
+    }
+
+    @Override
+    public void updatePassword(Long id, String encodedPassword) {
+        UserEntity entity = jpaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+        entity.setPassword(encodedPassword);
+        jpaRepository.save(entity);
     }
 
     /**
