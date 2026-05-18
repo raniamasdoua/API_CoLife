@@ -11,6 +11,8 @@ public final class ActivityMapper {
     public static Activity toDomain(ActivityEntity entity) {
         LocationEmbeddable loc = entity.getLocation();
         Location location = Location.builder()
+                .locationType(loc.getLocationType())
+                .room(loc.getRoom())
                 .street(loc.getStreet())
                 .complement(loc.getComplement())
                 .postalCode(loc.getPostalCode())
@@ -29,11 +31,14 @@ public final class ActivityMapper {
                 .startTime(entity.getStartTime())
                 .endTime(entity.getEndTime())
                 .deleted(entity.isDeleted())
+                .locationType(loc.getLocationType())
                 .build();
     }
 
     public static LocationEmbeddable toEmbeddable(Location location) {
         LocationEmbeddable emb = new LocationEmbeddable();
+        emb.setLocationType(location.getLocationType());
+        emb.setRoom(location.getRoom());
         emb.setStreet(location.getStreet());
         emb.setComplement(location.getComplement());
         emb.setPostalCode(location.getPostalCode());

@@ -12,8 +12,13 @@ import com.example.api.activity.domain.ActivityRepositoryPort;
 import com.example.api.activity.domain.ActivitySubscriptionPolicy;
 import com.example.api.activity.domain.ActivityUpdatePolicy;
 import com.example.api.activity.domain.Location;
+import com.example.api.activity.domain.LocationType;
 import com.example.api.activityType.domain.ActivityType;
 import com.example.api.activityType.domain.ActivityTypeRepositoryPort;
+import com.example.api.carpool.application.dto.CarpoolResponseDto;
+import com.example.api.carpool.domain.Carpool;
+import com.example.api.carpool.domain.CarpoolCreationPolicy;
+import com.example.api.carpool.domain.CarpoolRepositoryPort;
 import com.example.api.shared.exception.ConflictException;
 import com.example.api.shared.exception.ForbiddenException;
 import com.example.api.shared.exception.BusinessException;
@@ -38,6 +43,7 @@ public class ActivityUseCase {
     private final ActivityTypeRepositoryPort activityTypeRepository;
     private final UserRepositoryPort userRepository;
     private final SubscriptionRepositoryPort subscriptionRepository;
+    private final CarpoolRepositoryPort carpoolRepository;
     private final Clock clock;
 
     public ActivityUseCase(
@@ -45,11 +51,13 @@ public class ActivityUseCase {
             ActivityTypeRepositoryPort activityTypeRepository,
             UserRepositoryPort userRepository,
             SubscriptionRepositoryPort subscriptionRepository,
+            CarpoolRepositoryPort carpoolRepository,
             Clock clock) {
         this.activityRepository = activityRepository;
         this.activityTypeRepository = activityTypeRepository;
         this.userRepository = userRepository;
         this.subscriptionRepository = subscriptionRepository;
+        this.carpoolRepository = carpoolRepository;
         this.clock = clock;
     }
 
@@ -69,12 +77,17 @@ public class ActivityUseCase {
             throw new ConflictException("Vous avez déjà une activité sur ce créneau horaire");
         }
 
-        Location location = Location.builder()
-                .street(dto.location().street())
-                .complement(dto.location().complement())
-                .postalCode(dto.location().postalCode())
-                .city(dto.location().city())
-                .build();
+        LocationType locationType = dto.locationType() != null ? dto.locationType() : LocationType.OFF_SITE;
+        validateLocation(locationType, dto.location());
+
+        if (dto.carpool() != null) {
+            if (locationType == LocationType.ON_SITE) {
+                throw new BusinessException("Le covoiturage n'est disponible que pour les activités hors site");
+            }
+            CarpoolCreationPolicy.validate(dto.carpool().maxPassengers());
+        }
+
+        Location location = buildLocation(locationType, dto.location());
 
         Activity activity = Activity.builder()
                 .title(dto.title())
@@ -87,17 +100,69 @@ public class ActivityUseCase {
                 .startTime(dto.startTime())
                 .endTime(dto.endTime())
                 .deleted(false)
+                .locationType(locationType)
                 .build();
 
         Activity saved = activityRepository.save(activity);
 
         subscriptionRepository.registerParticipant(saved.getId(), organizerId);
 
+        CarpoolResponseDto carpoolResponse = null;
+        if (dto.carpool() != null) {
+            Carpool carpool = Carpool.builder()
+                    .activityId(saved.getId())
+                    .driverId(organizerId)
+                    .departureTime(dto.carpool().departureTime())
+                    .maxPassengers(dto.carpool().maxPassengers())
+                    .build();
+            Carpool savedCarpool = carpoolRepository.save(carpool);
+            carpoolResponse = toCarpoolResponse(savedCarpool);
+        }
+
         String organizerName = userRepository.findById(organizerId)
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .orElse("Inconnu");
         int participantCount = subscriptionRepository.countParticipants(saved.getId());
-        return toResponse(saved, activityType, organizerName, participantCount);
+        return toResponse(saved, activityType, organizerName, participantCount, carpoolResponse);
+    }
+
+    private void validateLocation(LocationType locationType, LocationDto location) {
+        if (locationType == LocationType.ON_SITE) {
+            if (location.room() == null || location.room().isBlank()) {
+                throw new BusinessException("La salle est obligatoire pour une activité sur site");
+            }
+        } else {
+            if (location.street() == null || location.street().isBlank()) {
+                throw new BusinessException("L'adresse (rue) est obligatoire pour une activité hors site");
+            }
+            if (location.postalCode() == null || location.postalCode().isBlank()) {
+                throw new BusinessException("Le code postal est obligatoire pour une activité hors site");
+            }
+            if (location.city() == null || location.city().isBlank()) {
+                throw new BusinessException("La ville est obligatoire pour une activité hors site");
+            }
+        }
+    }
+
+    private Location buildLocation(LocationType locationType, LocationDto dto) {
+        return Location.builder()
+                .locationType(locationType)
+                .room(dto.room())
+                .street(dto.street())
+                .complement(dto.complement())
+                .postalCode(dto.postalCode())
+                .city(dto.city())
+                .build();
+    }
+
+    private CarpoolResponseDto toCarpoolResponse(Carpool carpool) {
+        return new CarpoolResponseDto(
+                carpool.getId(),
+                carpool.getActivityId(),
+                carpool.getDriverId(),
+                carpool.getDepartureTime(),
+                carpool.getMaxPassengers()
+        );
     }
 
     @Transactional
@@ -148,12 +213,11 @@ public class ActivityUseCase {
             }
         }
 
-        Location location = Location.builder()
-                .street(dto.location().street())
-                .complement(dto.location().complement())
-                .postalCode(dto.location().postalCode())
-                .city(dto.location().city())
-                .build();
+        LocationType locationType = dto.locationType() != null ? dto.locationType()
+                : (activity.getLocationType() != null ? activity.getLocationType() : LocationType.OFF_SITE);
+        validateLocation(locationType, dto.location());
+
+        Location location = buildLocation(locationType, dto.location());
 
         Activity updated = Activity.builder()
                 .id(activity.getId())
@@ -167,6 +231,7 @@ public class ActivityUseCase {
                 .startTime(dto.startTime())
                 .endTime(dto.endTime())
                 .deleted(activity.isDeleted())
+                .locationType(locationType)
                 .build();
 
         Activity saved = activityRepository.update(updated);
@@ -175,7 +240,10 @@ public class ActivityUseCase {
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .orElse("Inconnu");
         int updatedParticipantCount = subscriptionRepository.countParticipants(saved.getId());
-        return toResponse(saved, activityType, organizerName, updatedParticipantCount);
+        CarpoolResponseDto carpoolResponse = carpoolRepository.findByActivityId(saved.getId())
+                .map(this::toCarpoolResponse)
+                .orElse(null);
+        return toResponse(saved, activityType, organizerName, updatedParticipantCount, carpoolResponse);
     }
 
     @Transactional
@@ -299,7 +367,10 @@ public class ActivityUseCase {
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .orElse("Inconnu");
         int updatedParticipantCount = subscriptionRepository.countParticipants(activityId);
-        return toResponse(activity, type, organizerName, updatedParticipantCount);
+        CarpoolResponseDto carpoolResponse = carpoolRepository.findByActivityId(activityId)
+                .map(this::toCarpoolResponse)
+                .orElse(null);
+        return toResponse(activity, type, organizerName, updatedParticipantCount, carpoolResponse);
     }
 
     @Transactional
@@ -335,7 +406,10 @@ public class ActivityUseCase {
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .orElse("Inconnu");
         int updatedParticipantCount = subscriptionRepository.countParticipants(activityId);
-        return toResponse(activity, type, organizerName, updatedParticipantCount);
+        CarpoolResponseDto carpoolResponse = carpoolRepository.findByActivityId(activityId)
+                .map(this::toCarpoolResponse)
+                .orElse(null);
+        return toResponse(activity, type, organizerName, updatedParticipantCount, carpoolResponse);
     }
 
     private List<ActivityResponseDto> toResponseList(List<Activity> activities) {
@@ -355,18 +429,26 @@ public class ActivityUseCase {
                                     .orElse("Inconnu")
                     );
                     int participantCount = subscriptionRepository.countParticipants(activity.getId());
-                    return toResponse(activity, type, organizerName, participantCount);
+                    CarpoolResponseDto carpoolResponse = carpoolRepository.findByActivityId(activity.getId())
+                            .map(this::toCarpoolResponse)
+                            .orElse(null);
+                    return toResponse(activity, type, organizerName, participantCount, carpoolResponse);
                 })
                 .toList();
     }
 
-    private ActivityResponseDto toResponse(Activity activity, ActivityType type, String organizerName, int participantCount) {
+    private ActivityResponseDto toResponse(Activity activity, ActivityType type, String organizerName,
+                                            int participantCount, CarpoolResponseDto carpool) {
         LocationDto locationDto = new LocationDto(
+                activity.getLocation().getRoom(),
                 activity.getLocation().getStreet(),
                 activity.getLocation().getComplement(),
                 activity.getLocation().getPostalCode(),
                 activity.getLocation().getCity()
         );
+        LocationType locationType = activity.getLocationType() != null
+                ? activity.getLocationType()
+                : LocationType.OFF_SITE;
         ActivityTypeDto typeDto = new ActivityTypeDto(type.getId(), type.getName());
         return new ActivityResponseDto(
                 activity.getId(),
@@ -380,7 +462,9 @@ public class ActivityUseCase {
                 activity.getStartTime(),
                 activity.getEndTime(),
                 organizerName,
-                activity.isDeleted()
+                activity.isDeleted(),
+                locationType,
+                carpool
         );
     }
 }

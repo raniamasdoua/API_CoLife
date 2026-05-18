@@ -1,5 +1,8 @@
 package com.example.api.activity.application.dto;
 
+import com.example.api.activity.domain.LocationType;
+import com.example.api.carpool.application.dto.CarpoolResponseDto;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 
@@ -15,6 +18,8 @@ public record ActivityResponseDto(
         LocalTime startTime,
         LocalTime endTime,
         String organizerName,
-        boolean deleted
+        boolean deleted,
+        LocationType locationType,
+        CarpoolResponseDto carpool
 ) {
 }
