@@ -1,5 +1,6 @@
 package com.example.api.carpool.infrastructure;
 
+import com.example.api.carpool.domain.CarpoolStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,4 +29,8 @@ public class CarpoolEntity {
 
     @Column(nullable = false)
     private int maxPassengers;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CarpoolStatus status = CarpoolStatus.ACTIVE;
 }

@@ -3,8 +3,10 @@ package com.example.api.carpool.infrastructure;
 import com.example.api.carpool.domain.Carpool;
 import com.example.api.carpool.domain.CarpoolMapper;
 import com.example.api.carpool.domain.CarpoolRepositoryPort;
+import com.example.api.carpool.domain.CarpoolStatus;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -19,13 +21,40 @@ public class CarpoolRepositoryAdapter implements CarpoolRepositoryPort {
     @Override
     public Carpool save(Carpool carpool) {
         CarpoolEntity entity = CarpoolMapper.toEntity(carpool);
-        CarpoolEntity saved = carpoolJpaRepository.save(entity);
-        return CarpoolMapper.toDomain(saved);
+        return CarpoolMapper.toDomain(carpoolJpaRepository.save(entity));
+    }
+
+    @Override
+    public Optional<Carpool> findById(Long id) {
+        return carpoolJpaRepository.findById(id).map(CarpoolMapper::toDomain);
     }
 
     @Override
     public Optional<Carpool> findByActivityId(Long activityId) {
-        return carpoolJpaRepository.findByActivityId(activityId)
+        return carpoolJpaRepository.findFirstByActivityIdAndStatusOrderByIdAsc(activityId, CarpoolStatus.ACTIVE).map(CarpoolMapper::toDomain);
+    }
+
+    @Override
+    public List<Carpool> findAllActiveByActivityId(Long activityId) {
+        return carpoolJpaRepository.findByActivityIdAndStatus(activityId, CarpoolStatus.ACTIVE)
+                .stream()
+                .map(CarpoolMapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public Optional<Carpool> findActiveByDriverIdAndActivityId(Long driverId, Long activityId) {
+        return carpoolJpaRepository.findByDriverIdAndActivityIdAndStatus(driverId, activityId, CarpoolStatus.ACTIVE)
                 .map(CarpoolMapper::toDomain);
+    }
+
+    @Override
+    public void cancelByDriverIdAndActivityId(Long driverId, Long activityId) {
+        carpoolJpaRepository.cancelByDriverIdAndActivityId(driverId, activityId);
+    }
+
+    @Override
+    public void cancelAllByActivityId(Long activityId) {
+        carpoolJpaRepository.cancelAllByActivityId(activityId);
     }
 }

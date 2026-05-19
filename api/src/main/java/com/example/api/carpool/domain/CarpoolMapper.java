@@ -14,6 +14,7 @@ public final class CarpoolMapper {
                 .driverId(entity.getDriverId())
                 .departureTime(entity.getDepartureTime())
                 .maxPassengers(entity.getMaxPassengers())
+                .status(entity.getStatus() != null ? entity.getStatus() : CarpoolStatus.ACTIVE)
                 .build();
     }
 
@@ -23,6 +24,7 @@ public final class CarpoolMapper {
         entity.setDriverId(carpool.getDriverId());
         entity.setDepartureTime(carpool.getDepartureTime());
         entity.setMaxPassengers(carpool.getMaxPassengers());
+        entity.setStatus(carpool.getStatus() != null ? carpool.getStatus() : CarpoolStatus.ACTIVE);
         return entity;
     }
 }

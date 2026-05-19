@@ -18,6 +18,7 @@ import com.example.api.activityType.domain.ActivityTypeRepositoryPort;
 import com.example.api.carpool.application.dto.CarpoolResponseDto;
 import com.example.api.carpool.domain.Carpool;
 import com.example.api.carpool.domain.CarpoolCreationPolicy;
+import com.example.api.carpool.domain.CarpoolPassengerRepositoryPort;
 import com.example.api.carpool.domain.CarpoolRepositoryPort;
 import com.example.api.shared.exception.ConflictException;
 import com.example.api.shared.exception.ForbiddenException;
@@ -44,6 +45,7 @@ public class ActivityUseCase {
     private final UserRepositoryPort userRepository;
     private final SubscriptionRepositoryPort subscriptionRepository;
     private final CarpoolRepositoryPort carpoolRepository;
+    private final CarpoolPassengerRepositoryPort carpoolPassengerRepository;
     private final Clock clock;
 
     public ActivityUseCase(
@@ -52,12 +54,14 @@ public class ActivityUseCase {
             UserRepositoryPort userRepository,
             SubscriptionRepositoryPort subscriptionRepository,
             CarpoolRepositoryPort carpoolRepository,
+            CarpoolPassengerRepositoryPort carpoolPassengerRepository,
             Clock clock) {
         this.activityRepository = activityRepository;
         this.activityTypeRepository = activityTypeRepository;
         this.userRepository = userRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.carpoolRepository = carpoolRepository;
+        this.carpoolPassengerRepository = carpoolPassengerRepository;
         this.clock = clock;
     }
 
@@ -84,7 +88,7 @@ public class ActivityUseCase {
             if (locationType == LocationType.ON_SITE) {
                 throw new BusinessException("Le covoiturage n'est disponible que pour les activités hors site");
             }
-            CarpoolCreationPolicy.validate(dto.carpool().maxPassengers());
+            CarpoolCreationPolicy.validate(dto.carpool().maxPassengers(), dto.carpool().departureTime(), dto.startTime());
         }
 
         Location location = buildLocation(locationType, dto.location());
@@ -262,6 +266,13 @@ public class ActivityUseCase {
         LocalTime now = LocalTime.now(clock);
         ActivityUpdatePolicy.validateActivityIsModifiable(activity, today, now);
 
+        List<Carpool> activeCarpools = carpoolRepository.findAllActiveByActivityId(activityId);
+        if (!activeCarpools.isEmpty()) {
+            List<Long> carpoolIds = activeCarpools.stream().map(Carpool::getId).toList();
+            carpoolPassengerRepository.removeAllByCarpoolIds(carpoolIds);
+            carpoolRepository.cancelAllByActivityId(activityId);
+        }
+
         subscriptionRepository.deleteAllByActivityId(activityId);
         activityRepository.softDelete(activityId);
     }
@@ -393,6 +404,17 @@ public class ActivityUseCase {
         LocalDate today = LocalDate.now(clock);
         LocalTime now = LocalTime.now(clock);
         ActivitySubscriptionPolicy.validateActivityAllowsUnsubscribe(activity, today, now);
+
+        // Cleanup carpool: remove as passenger or cancel as driver
+        carpoolRepository.findActiveByDriverIdAndActivityId(userId, activityId).ifPresent(driverCarpool -> {
+            carpoolPassengerRepository.removeAllByCarpoolId(driverCarpool.getId());
+            carpoolRepository.cancelByDriverIdAndActivityId(userId, activityId);
+        });
+
+        List<Carpool> activeCarpools = carpoolRepository.findAllActiveByActivityId(activityId);
+        List<Long> carpoolIds = activeCarpools.stream().map(Carpool::getId).toList();
+        carpoolPassengerRepository.findActiveByPassengerIdAndCarpoolIds(userId, carpoolIds)
+                .ifPresent(cp -> carpoolPassengerRepository.removePassenger(cp.getCarpoolId(), userId));
 
         try {
             subscriptionRepository.unsubscribeParticipant(activityId, userId);

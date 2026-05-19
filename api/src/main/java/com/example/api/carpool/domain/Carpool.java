@@ -13,4 +13,5 @@ public class Carpool {
     private Long driverId;
     private LocalTime departureTime;
     private int maxPassengers;
+    private CarpoolStatus status;
 }
