@@ -18,6 +18,11 @@ public interface CarpoolPassengerRepositoryPort {
     Optional<CarpoolPassenger> findActiveByPassengerIdAndCarpoolIds(Long passengerId, List<Long> carpoolIds);
 
     /**
+     * Retourne tous les passagers actifs d'un covoiturage.
+     */
+    List<CarpoolPassenger> findAllActivePassengersByCarpoolId(Long carpoolId);
+
+    /**
      * Retire un passager d'un covoiturage (soft-delete).
      */
     void removePassenger(Long carpoolId, Long passengerId);

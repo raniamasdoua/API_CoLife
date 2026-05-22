@@ -221,6 +221,18 @@ public class ActivityUseCase {
                 : (activity.getLocationType() != null ? activity.getLocationType() : LocationType.OFF_SITE);
         validateLocation(locationType, dto.location());
 
+        // Si l'activité passe de hors-site à sur-site, annuler tous les covoiturages actifs
+        boolean switchingToOnSite = locationType == LocationType.ON_SITE
+                && activity.getLocationType() != LocationType.ON_SITE;
+        if (switchingToOnSite) {
+            List<Carpool> activeCarpools = carpoolRepository.findAllActiveByActivityId(activityId);
+            if (!activeCarpools.isEmpty()) {
+                List<Long> carpoolIds = activeCarpools.stream().map(Carpool::getId).toList();
+                carpoolPassengerRepository.removeAllByCarpoolIds(carpoolIds);
+                carpoolRepository.cancelAllByActivityId(activityId);
+            }
+        }
+
         Location location = buildLocation(locationType, dto.location());
 
         Activity updated = Activity.builder()

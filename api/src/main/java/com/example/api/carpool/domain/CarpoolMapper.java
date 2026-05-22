@@ -20,6 +20,7 @@ public final class CarpoolMapper {
 
     public static CarpoolEntity toEntity(Carpool carpool) {
         CarpoolEntity entity = new CarpoolEntity();
+        entity.setId(carpool.getId());
         entity.setActivityId(carpool.getActivityId());
         entity.setDriverId(carpool.getDriverId());
         entity.setDepartureTime(carpool.getDepartureTime());

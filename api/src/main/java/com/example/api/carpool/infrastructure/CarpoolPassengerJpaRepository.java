@@ -17,6 +17,8 @@ public interface CarpoolPassengerJpaRepository extends JpaRepository<CarpoolPass
 
     Optional<CarpoolPassengerEntity> findByCarpoolIdAndPassengerIdAndLeftAtIsNull(Long carpoolId, Long passengerId);
 
+    List<CarpoolPassengerEntity> findByCarpoolIdAndLeftAtIsNull(Long carpoolId);
+
     @Query("""
             SELECT cp FROM CarpoolPassengerEntity cp
             WHERE cp.carpoolId IN :carpoolIds

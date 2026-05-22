@@ -65,6 +65,47 @@ public class CarpoolController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
+    @PutMapping("/{carpoolId}")
+    @Operation(
+            summary = "Modifier un covoiturage",
+            description = "Le conducteur modifie l'heure de départ et/ou le nombre de places de sa proposition. Le nouveau nombre de places ne peut pas être inférieur au nombre de passagers déjà inscrits."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Covoiturage mis à jour"),
+            @ApiResponse(responseCode = "400", description = "Règle métier non respectée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "403", description = "L'utilisateur n'est pas le conducteur"),
+            @ApiResponse(responseCode = "404", description = "Covoiturage non trouvé")
+    })
+    public ResponseEntity<CarpoolDetailDto> update(
+            @PathVariable Long activityId,
+            @PathVariable Long carpoolId,
+            @AuthenticationPrincipal JwtPrincipal principal,
+            @Valid @RequestBody CarpoolRequestDto dto) {
+        CarpoolDetailDto result = carpoolUseCase.updateCarpoolByDriver(activityId, carpoolId, principal.userId(), dto);
+        return ResponseEntity.ok(result);
+    }
+
+    @DeleteMapping("/{carpoolId}")
+    @Operation(
+            summary = "Annuler un covoiturage",
+            description = "Le conducteur annule sa proposition. Tous les passagers inscrits sont automatiquement retirés."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Covoiturage annulé"),
+            @ApiResponse(responseCode = "400", description = "Règle métier non respectée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "403", description = "L'utilisateur n'est pas le conducteur"),
+            @ApiResponse(responseCode = "404", description = "Covoiturage non trouvé")
+    })
+    public ResponseEntity<Void> cancel(
+            @PathVariable Long activityId,
+            @PathVariable Long carpoolId,
+            @AuthenticationPrincipal JwtPrincipal principal) {
+        carpoolUseCase.cancelCarpoolByDriver(activityId, carpoolId, principal.userId());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{carpoolId}/join")
     @Operation(
             summary = "Rejoindre un covoiturage",

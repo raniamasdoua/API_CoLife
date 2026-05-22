@@ -48,6 +48,14 @@ public class CarpoolPassengerRepositoryAdapter implements CarpoolPassengerReposi
     }
 
     @Override
+    public List<CarpoolPassenger> findAllActivePassengersByCarpoolId(Long carpoolId) {
+        return jpaRepository.findByCarpoolIdAndLeftAtIsNull(carpoolId)
+                .stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
     public void removePassenger(Long carpoolId, Long passengerId) {
         jpaRepository.softDeleteByPassengerIdAndCarpoolId(carpoolId, passengerId, LocalDateTime.now());
     }

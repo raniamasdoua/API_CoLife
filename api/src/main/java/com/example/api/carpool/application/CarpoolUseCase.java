@@ -5,6 +5,7 @@ import com.example.api.activity.domain.ActivityRepositoryPort;
 import com.example.api.activity.domain.LocationType;
 import com.example.api.carpool.application.dto.ActivityCarpoolsResponseDto;
 import com.example.api.carpool.application.dto.CarpoolDetailDto;
+import com.example.api.carpool.application.dto.CarpoolPassengerSummaryDto;
 import com.example.api.carpool.application.dto.CarpoolRequestDto;
 import com.example.api.carpool.domain.Carpool;
 import com.example.api.carpool.domain.CarpoolCreationPolicy;
@@ -83,7 +84,7 @@ public class CarpoolUseCase {
         }
 
         List<CarpoolDetailDto> details = carpools.stream()
-                .map(c -> toDetail(c, carpoolPassengerRepository.countActive(c.getId())))
+                .map(this::toDetail)
                 .toList();
 
         return new ActivityCarpoolsResponseDto(details, userRole, userCarpoolId);
@@ -97,7 +98,9 @@ public class CarpoolUseCase {
         requireOffSite(activity);
         requireActivityNotPast(activity);
 
-        if (!subscriptionRepository.existsByActivityIdAndUserId(activityId, userId)) {
+        // L'organisateur peut proposer un covoiturage sans être inscrit
+        boolean isOrganizer = activity.getOrganizerId().equals(userId);
+        if (!isOrganizer && !subscriptionRepository.existsByActivityIdAndUserId(activityId, userId)) {
             throw new BusinessException("Vous devez être inscrit à l'activité pour proposer un covoiturage");
         }
 
@@ -115,7 +118,72 @@ public class CarpoolUseCase {
                 .build();
 
         Carpool saved = carpoolRepository.save(carpool);
-        return toDetail(saved, 0);
+        return toDetail(saved);
+    }
+
+    /* ──────────────────────────── Update ─────────────────────────────────── */
+
+    @Transactional
+    public CarpoolDetailDto updateCarpoolByDriver(Long activityId, Long carpoolId, Long userId, CarpoolRequestDto dto) {
+        Activity activity = findValidActivity(activityId);
+        requireOffSite(activity);
+        requireActivityNotPast(activity);
+
+        Carpool carpool = carpoolRepository.findById(carpoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Covoiturage non trouvé"));
+
+        if (!carpool.getActivityId().equals(activityId)) {
+            throw new ResourceNotFoundException("Covoiturage non trouvé pour cette activité");
+        }
+        if (!carpool.getDriverId().equals(userId)) {
+            throw new BusinessException("Seul le conducteur peut modifier ce covoiturage");
+        }
+        if (carpool.getStatus() != CarpoolStatus.ACTIVE) {
+            throw new BusinessException("Ce covoiturage n'est plus actif");
+        }
+
+        CarpoolCreationPolicy.validate(dto.maxPassengers(), dto.departureTime(), activity.getStartTime());
+
+        int currentPassengerCount = carpoolPassengerRepository.countActive(carpoolId);
+        if (dto.maxPassengers() < currentPassengerCount) {
+            throw new BusinessException(
+                    "Le nombre de places ne peut pas être inférieur au nombre de passagers actuels (" + currentPassengerCount + ")");
+        }
+
+        Carpool updated = Carpool.builder()
+                .id(carpool.getId())
+                .activityId(carpool.getActivityId())
+                .driverId(carpool.getDriverId())
+                .departureTime(dto.departureTime())
+                .maxPassengers(dto.maxPassengers())
+                .status(carpool.getStatus())
+                .build();
+
+        Carpool saved = carpoolRepository.save(updated);
+        return toDetail(saved);
+    }
+
+    /* ──────────────────────────── Cancel ─────────────────────────────────── */
+
+    @Transactional
+    public void cancelCarpoolByDriver(Long activityId, Long carpoolId, Long userId) {
+        findValidActivity(activityId);
+
+        Carpool carpool = carpoolRepository.findById(carpoolId)
+                .orElseThrow(() -> new ResourceNotFoundException("Covoiturage non trouvé"));
+
+        if (!carpool.getActivityId().equals(activityId)) {
+            throw new ResourceNotFoundException("Covoiturage non trouvé pour cette activité");
+        }
+        if (!carpool.getDriverId().equals(userId)) {
+            throw new BusinessException("Seul le conducteur peut annuler ce covoiturage");
+        }
+        if (carpool.getStatus() != CarpoolStatus.ACTIVE) {
+            throw new BusinessException("Ce covoiturage n'est plus actif");
+        }
+
+        carpoolPassengerRepository.removeAllByCarpoolId(carpoolId);
+        carpoolRepository.cancelByDriverIdAndActivityId(userId, activityId);
     }
 
     /* ───────────────────────────── Join ──────────────────────────────────── */
@@ -149,7 +217,7 @@ public class CarpoolUseCase {
                 .build();
         carpoolPassengerRepository.save(passenger);
 
-        return toDetail(carpool, passengerCount + 1);
+        return toDetail(carpool);
     }
 
     /* ───────────────────────────── Leave ─────────────────────────────────── */
@@ -214,11 +282,26 @@ public class CarpoolUseCase {
                 carpoolPassengerRepository.findActiveByPassengerIdAndCarpoolIds(userId, ids).isPresent();
     }
 
-    private CarpoolDetailDto toDetail(Carpool carpool, int passengerCount) {
+    private CarpoolDetailDto toDetail(Carpool carpool) {
         String driverName = userRepository.findById(carpool.getDriverId())
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .orElse("Inconnu");
+
+        List<CarpoolPassenger> activePassengers =
+                carpoolPassengerRepository.findAllActivePassengersByCarpoolId(carpool.getId());
+
+        List<CarpoolPassengerSummaryDto> passengerSummaries = activePassengers.stream()
+                .map(p -> {
+                    String fullName = userRepository.findById(p.getPassengerId())
+                            .map(u -> u.getFirstName() + " " + u.getLastName())
+                            .orElse("Inconnu");
+                    return new CarpoolPassengerSummaryDto(p.getPassengerId(), fullName);
+                })
+                .toList();
+
+        int passengerCount = passengerSummaries.size();
         int availableSeats = Math.max(0, carpool.getMaxPassengers() - passengerCount);
+
         return new CarpoolDetailDto(
                 carpool.getId(),
                 carpool.getActivityId(),
@@ -228,7 +311,8 @@ public class CarpoolUseCase {
                 carpool.getMaxPassengers(),
                 passengerCount,
                 availableSeats,
-                carpool.getStatus()
+                carpool.getStatus(),
+                passengerSummaries
         );
     }
 }
