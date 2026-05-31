@@ -56,6 +56,23 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         UserEntity entity = jpaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
         entity.setPassword(encodedPassword);
+        entity.setResetToken(null);
+        entity.setResetTokenExpiry(null);
+        jpaRepository.save(entity);
+    }
+
+    @Override
+    public Optional<User> findByResetToken(String resetToken) {
+        return jpaRepository.findByResetToken(resetToken)
+                .map(UserMapper::toDomain);
+    }
+
+    @Override
+    public void updateResetToken(Long id, String resetToken, java.time.LocalDateTime resetTokenExpiry) {
+        UserEntity entity = jpaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+        entity.setResetToken(resetToken);
+        entity.setResetTokenExpiry(resetTokenExpiry);
         jpaRepository.save(entity);
     }
 

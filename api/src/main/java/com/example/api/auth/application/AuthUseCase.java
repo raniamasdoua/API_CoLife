@@ -1,9 +1,13 @@
 package com.example.api.auth.application;
 
+import com.example.api.auth.application.dto.ForgotPasswordRequestDto;
+import com.example.api.auth.application.dto.ForgotPasswordResponseDto;
 import com.example.api.auth.application.dto.LoginRequestDto;
 import com.example.api.auth.application.dto.LoginResponseDto;
 import com.example.api.auth.application.dto.MeResponseDto;
 import com.example.api.auth.application.dto.RegisterRequestDto;
+import com.example.api.auth.application.dto.ResetPasswordRequestDto;
+import com.example.api.shared.exception.BusinessException;
 import com.example.api.shared.exception.ConflictException;
 import com.example.api.shared.exception.UnauthorizedException;
 import com.example.api.shared.security.JwtPrincipal;
@@ -16,6 +20,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Base64;
+
 @Service
 public class AuthUseCase {
 
@@ -24,6 +32,8 @@ public class AuthUseCase {
     private final JwtService jwtService;
 
     private static final Logger log = LoggerFactory.getLogger(AuthUseCase.class);
+    private static final SecureRandom secureRandom = new SecureRandom();
+    private static final Base64.Encoder base64UrlEncoder = Base64.getUrlEncoder().withoutPadding();
 
     public AuthUseCase(UserRepositoryPort userRepository,
                        PasswordEncoder passwordEncoder,
@@ -76,6 +86,47 @@ public class AuthUseCase {
         log.info("User loggué avec succès: {}", normalizedEmail);
 
         return LoginResponseDto.of(token);
+    }
+
+    public ForgotPasswordResponseDto forgotPassword(ForgotPasswordRequestDto request) {
+        String normalizedEmail = request.email().toLowerCase().trim();
+        return userRepository.findByEmail(normalizedEmail)
+                .map(user -> {
+                    String token = generateResetToken();
+                    LocalDateTime expiry = LocalDateTime.now().plusHours(1);
+                    userRepository.updateResetToken(user.getId(), token, expiry);
+                    log.info("Reset password token generated for user: {}", normalizedEmail);
+                    return new ForgotPasswordResponseDto(
+                            "Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.",
+                            token
+                    );
+                })
+                .orElseGet(() -> new ForgotPasswordResponseDto(
+                        "Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.",
+                        null
+                ));
+    }
+
+    public void resetPassword(ResetPasswordRequestDto request) {
+        if (request.token() == null || request.token().isBlank()) {
+            throw new BusinessException("Le jeton de réinitialisation est invalide.");
+        }
+
+        User user = userRepository.findByResetToken(request.token())
+                .orElseThrow(() -> new BusinessException("Lien de réinitialisation invalide ou expiré."));
+
+        if (user.getResetTokenExpiry() == null || user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("Lien de réinitialisation invalide ou expiré.");
+        }
+
+        String encodedPassword = passwordEncoder.encode(request.newPassword());
+        userRepository.updatePassword(user.getId(), encodedPassword);
+    }
+
+    private String generateResetToken() {
+        byte[] random = new byte[32];
+        secureRandom.nextBytes(random);
+        return base64UrlEncoder.encodeToString(random);
     }
 
     /**
