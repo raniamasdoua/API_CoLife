@@ -7,7 +7,7 @@ import com.example.api.activity.infrastructure.ActivityJpaRepository;
 import com.example.api.activity.infrastructure.LocationEmbeddable;
 import com.example.api.activityType.infrastructure.ActivityTypeEntity;
 import com.example.api.activityType.infrastructure.ActivityTypeJpaRepository;
-import com.example.api.shared.security.JwtService;
+import com.example.api.shared.security.JwtPrincipal;
 import com.example.api.subscription.infrastructure.SubscriptionEntity;
 import com.example.api.subscription.infrastructure.SubscriptionJpaRepository;
 import com.example.api.user.domain.Role;
@@ -19,17 +19,24 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -39,6 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(TestSecurityConfig.class)
 @Transactional
 class ActivityControllerIntegrationTest {
 
@@ -47,9 +55,6 @@ class ActivityControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    @Autowired
-    private JwtService jwtService;
 
     @Autowired
     private UserJpaRepository userJpaRepository;
@@ -63,27 +68,33 @@ class ActivityControllerIntegrationTest {
     @Autowired
     private SubscriptionJpaRepository subscriptionJpaRepository;
 
-    private String token;
     private Long activityTypeId;
-    private Long userId;
+    private UUID userId;
+    private String userEmail;
     private Long activityId;
+
+    /** Authentification de test : injecte directement un JwtPrincipal (comme le ferait le converter Keycloak). */
+    private static RequestPostProcessor authFor(UUID userId, String email, Role role) {
+        JwtPrincipal principal = new JwtPrincipal(userId, email, role);
+        return authentication(new UsernamePasswordAuthenticationToken(
+                principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.name()))));
+    }
+
+    private UserEntity createUser(String firstName, String lastName, String email, Role role) {
+        UserEntity user = new UserEntity(UUID.randomUUID(), firstName, lastName, email, role);
+        return userJpaRepository.save(user);
+    }
 
     @BeforeEach
     void setUp() {
-        UserEntity user = new UserEntity(
-                "Int", "Test",
-                "activity-it@entreprise.com",
-                "hashed",
-                Role.COLLABORATOR);
-        user = userJpaRepository.save(user);
+        UserEntity user = createUser("Int", "Test", "activity-it@entreprise.com", Role.COLLABORATOR);
         userId = user.getId();
+        userEmail = user.getEmail();
 
         ActivityTypeEntity type = new ActivityTypeEntity();
         type.setName("Sport");
         type = activityTypeJpaRepository.save(type);
         activityTypeId = type.getId();
-
-        token = jwtService.generateToken(userId, user.getEmail(), Role.COLLABORATOR);
 
         // Activité de base disponible pour les tests update
         LocationEmbeddable loc = new LocationEmbeddable();
@@ -129,7 +140,7 @@ class ActivityControllerIntegrationTest {
                 new LocationDto("Stade municipal", null, "44000", "Nantes"));
 
         mockMvc.perform(post("/activities")
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated())
@@ -168,7 +179,7 @@ class ActivityControllerIntegrationTest {
                 """.formatted(activityTypeId, dateStr);
 
         mockMvc.perform(post("/activities")
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest());
@@ -183,7 +194,7 @@ class ActivityControllerIntegrationTest {
                 new LocationDto("a", null, "b", "c"));
 
         mockMvc.perform(post("/activities")
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isNotFound());
@@ -198,13 +209,13 @@ class ActivityControllerIntegrationTest {
                 new LocationDto("a", null, "b", "c"));
 
         mockMvc.perform(post("/activities")
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(post("/activities")
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isConflict());
@@ -237,7 +248,7 @@ class ActivityControllerIntegrationTest {
     @Test
     void should_return_200_when_organizer_updates_own_activity() throws Exception {
         mockMvc.perform(put("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validUpdateJson()))
                 .andExpect(status().isOk())
@@ -270,7 +281,7 @@ class ActivityControllerIntegrationTest {
                 """.formatted(activityTypeId, dateStr);
 
         mockMvc.perform(put("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest());
@@ -292,7 +303,7 @@ class ActivityControllerIntegrationTest {
                 """.formatted(activityTypeId, dateStr);
 
         mockMvc.perform(put("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest());
@@ -300,12 +311,10 @@ class ActivityControllerIntegrationTest {
 
     @Test
     void should_return_403_when_caller_is_not_the_organizer() throws Exception {
-        UserEntity otherUser = new UserEntity("Autre", "User", "other@test.com", "hashed", Role.COLLABORATOR);
-        otherUser = userJpaRepository.save(otherUser);
-        String otherToken = jwtService.generateToken(otherUser.getId(), otherUser.getEmail(), Role.COLLABORATOR);
+        UserEntity otherUser = createUser("Autre", "User", "other@entreprise.com", Role.COLLABORATOR);
 
         mockMvc.perform(put("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + otherToken)
+                        .with(authFor(otherUser.getId(), otherUser.getEmail(), Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validUpdateJson()))
                 .andExpect(status().isForbidden());
@@ -313,12 +322,10 @@ class ActivityControllerIntegrationTest {
 
     @Test
     void should_return_200_when_admin_updates_another_users_activity() throws Exception {
-        UserEntity admin = new UserEntity("Admin", "User", "admin@test.com", "hashed_pw", Role.ADMIN);
-        admin = userJpaRepository.save(admin);
-        String adminToken = jwtService.generateToken(admin.getId(), admin.getEmail(), Role.ADMIN);
+        UserEntity admin = createUser("Admin", "User", "admin@entreprise.com", Role.ADMIN);
 
         mockMvc.perform(put("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .with(authFor(admin.getId(), admin.getEmail(), Role.ADMIN))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validUpdateJson()))
                 .andExpect(status().isOk())
@@ -328,7 +335,7 @@ class ActivityControllerIntegrationTest {
     @Test
     void should_return_404_when_activity_does_not_exist() throws Exception {
         mockMvc.perform(put("/activities/999999")
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validUpdateJson()))
                 .andExpect(status().isNotFound());
@@ -337,7 +344,7 @@ class ActivityControllerIntegrationTest {
     @Test
     void should_return_404_when_activity_type_does_not_exist_for_update() throws Exception {
         mockMvc.perform(put("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validUpdateJson(999_999L, LocalDate.now().plusDays(15))))
                 .andExpect(status().isNotFound());
@@ -364,7 +371,7 @@ class ActivityControllerIntegrationTest {
         pastActivity = activityJpaRepository.save(pastActivity);
 
         mockMvc.perform(put("/activities/" + pastActivity.getId())
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validUpdateJson()))
                 .andExpect(status().isBadRequest())
@@ -376,7 +383,7 @@ class ActivityControllerIntegrationTest {
         // Ajouter un 2e participant → participantCount = 2
         SubscriptionEntity extraSub = new SubscriptionEntity();
         extraSub.setActivityId(activityId);
-        extraSub.setUserId(9999L);
+        extraSub.setUserId(UUID.randomUUID());
         extraSub.setSubscribedAt(LocalDateTime.now());
         subscriptionJpaRepository.save(extraSub);
 
@@ -394,7 +401,7 @@ class ActivityControllerIntegrationTest {
                 """.formatted(activityTypeId, dateStr);
 
         mockMvc.perform(put("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest())
@@ -412,7 +419,7 @@ class ActivityControllerIntegrationTest {
                 new LocationDto("2 rue B", null, "75002", "Paris"));
 
         String createResponse = mockMvc.perform(post("/activities")
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dtoB)))
                 .andExpect(status().isCreated())
@@ -434,7 +441,7 @@ class ActivityControllerIntegrationTest {
                 """.formatted(activityTypeId, LocalDate.now().plusDays(10).format(DateTimeFormatter.ISO_LOCAL_DATE));
 
         mockMvc.perform(put("/activities/" + activityBId)
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(conflictJson))
                 .andExpect(status().isConflict())
@@ -444,12 +451,10 @@ class ActivityControllerIntegrationTest {
     @Test
     void should_return_409_when_new_slot_conflicts_with_a_subscribed_participants_schedule() throws Exception {
         // Créer un 2e utilisateur (participant)
-        UserEntity participant = new UserEntity("Part", "Icipant", "participant@test.com", "hashed", Role.COLLABORATOR);
-        participant = userJpaRepository.save(participant);
+        UserEntity participant = createUser("Part", "Icipant", "participant@entreprise.com", Role.COLLABORATOR);
 
         // Créer une activité séparée à D+15, 14:00-16:00 organisée par une tierce personne
-        UserEntity organizer2 = new UserEntity("Other", "Org", "org2@test.com", "hashed", Role.COLLABORATOR);
-        organizer2 = userJpaRepository.save(organizer2);
+        UserEntity organizer2 = createUser("Other", "Org", "org2@entreprise.com", Role.COLLABORATOR);
 
         LocationEmbeddable loc = new LocationEmbeddable();
         loc.setStreet("3 rue C");
@@ -496,7 +501,7 @@ class ActivityControllerIntegrationTest {
                 """.formatted(activityTypeId, LocalDate.now().plusDays(15).format(DateTimeFormatter.ISO_LOCAL_DATE));
 
         mockMvc.perform(put("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + token)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(conflictJson))
                 .andExpect(status().isConflict())
@@ -510,7 +515,7 @@ class ActivityControllerIntegrationTest {
     @Test
     void should_return_204_when_organizer_deletes_own_activity() throws Exception {
         mockMvc.perform(delete("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + token))
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR)))
                 .andExpect(status().isNoContent());
 
         assertThat(activityJpaRepository.findById(activityId)).isPresent();
@@ -526,12 +531,10 @@ class ActivityControllerIntegrationTest {
 
     @Test
     void should_return_403_when_caller_is_not_organizer_for_delete() throws Exception {
-        UserEntity other = new UserEntity("O", "User", "other-del@test.com", "h", Role.COLLABORATOR);
-        other = userJpaRepository.save(other);
-        String otherToken = jwtService.generateToken(other.getId(), other.getEmail(), Role.COLLABORATOR);
+        UserEntity other = createUser("O", "User", "other-del@entreprise.com", Role.COLLABORATOR);
 
         mockMvc.perform(delete("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + otherToken))
+                        .with(authFor(other.getId(), other.getEmail(), Role.COLLABORATOR)))
                 .andExpect(status().isForbidden());
 
         assertThat(activityJpaRepository.findById(activityId).orElseThrow().isDeleted()).isFalse();
@@ -539,12 +542,10 @@ class ActivityControllerIntegrationTest {
 
     @Test
     void should_return_204_when_admin_deletes_activity() throws Exception {
-        UserEntity admin = new UserEntity("Ad", "Min", "admin-del@test.com", "h", Role.ADMIN);
-        admin = userJpaRepository.save(admin);
-        String adminToken = jwtService.generateToken(admin.getId(), admin.getEmail(), Role.ADMIN);
+        UserEntity admin = createUser("Ad", "Min", "admin-del@entreprise.com", Role.ADMIN);
 
         mockMvc.perform(delete("/activities/" + activityId)
-                        .header("Authorization", "Bearer " + adminToken))
+                        .with(authFor(admin.getId(), admin.getEmail(), Role.ADMIN)))
                 .andExpect(status().isNoContent());
 
         assertThat(activityJpaRepository.findById(activityId).orElseThrow().isDeleted()).isTrue();
@@ -553,7 +554,7 @@ class ActivityControllerIntegrationTest {
     @Test
     void should_return_404_when_activity_not_found_for_delete() throws Exception {
         mockMvc.perform(delete("/activities/999999")
-                        .header("Authorization", "Bearer " + token))
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR)))
                 .andExpect(status().isNotFound());
     }
 
@@ -577,7 +578,7 @@ class ActivityControllerIntegrationTest {
         past = activityJpaRepository.save(past);
 
         mockMvc.perform(delete("/activities/" + past.getId())
-                        .header("Authorization", "Bearer " + token))
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("passée")));
 

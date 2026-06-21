@@ -8,6 +8,7 @@ import com.example.api.user.domain.UserRepositoryPort;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserUseCase {
@@ -23,7 +24,7 @@ public class UserUseCase {
     }
 
     /** Retourne le profil complet d'un utilisateur. */
-    public UserResponseDto getUserById(Long userId) {
+    public UserResponseDto getUserById(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
         return toDto(user);
@@ -33,7 +34,7 @@ public class UserUseCase {
      * Met à jour les champs modifiables (bio, phone, address) du profil.
      * Les valeurs null dans la requête sont ignorées (patch partiel).
      */
-    public UserResponseDto updateProfile(Long userId, UpdateProfileRequestDto request) {
+    public UserResponseDto updateProfile(UUID userId, UpdateProfileRequestDto request) {
         User existing = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 

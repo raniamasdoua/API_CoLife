@@ -1,12 +1,14 @@
 package com.example.api.user.infrastructure;
 
 import com.example.api.shared.exception.ResourceNotFoundException;
+import com.example.api.user.domain.Role;
 import com.example.api.user.domain.User;
 import com.example.api.user.domain.UserMapper;
 import com.example.api.user.domain.UserRepositoryPort;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class UserRepositoryAdapter implements UserRepositoryPort {
@@ -18,7 +20,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     }
 
     @Override
-    public Optional<User> findById(Long id) {
+    public Optional<User> findById(UUID id) {
         return jpaRepository.findById(id)
                 .map(UserMapper::toDomain);
     }
@@ -48,5 +50,15 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         UserMapper.updateEntity(entity, user);
         UserEntity saved = jpaRepository.save(entity);
         return UserMapper.toDomain(saved);
+    }
+
+    @Override
+    public void updateRole(UUID id, Role role) {
+        jpaRepository.findById(id).ifPresent(entity -> {
+            if (entity.getRole() != role) {
+                entity.setRole(role);
+                jpaRepository.save(entity);
+            }
+        });
     }
 }

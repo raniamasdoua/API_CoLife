@@ -16,6 +16,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/user")
 @Tag(name = "Utilisateurs", description = "Consultation et mise à jour du profil utilisateur.")
@@ -42,7 +44,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = "Accès refusé (si non autorisé)"),
             @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
     })
-    public ResponseEntity<UserResponseDto> getUserById(@PathVariable Long id) {
+    public ResponseEntity<UserResponseDto> getUserById(@PathVariable UUID id) {
         return ResponseEntity.ok(userUseCase.getUserById(id));
     }
 
@@ -63,7 +65,7 @@ public class UserController {
             @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
     })
     public ResponseEntity<UserResponseDto> updateProfile(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody UpdateProfileRequestDto request,
             @AuthenticationPrincipal JwtPrincipal principal) {
         return ResponseEntity.ok(userUseCase.updateProfile(id, request));

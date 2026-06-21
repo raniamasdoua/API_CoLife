@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.UUID;
 
 public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Long> {
 
@@ -16,7 +17,7 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
             where a.organizer.id = :organizerId
               and a.isDeleted = false
             """)
-    List<ActivityEntity> findByOrganizerIdAndNotDeleted(@Param("organizerId") Long organizerId);
+    List<ActivityEntity> findByOrganizerIdAndNotDeleted(@Param("organizerId") UUID organizerId);
 
     @Query("""
             select a from ActivityEntity a
@@ -24,7 +25,7 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
             where a.organizer.id <> :organizerId
               and a.isDeleted = false
             """)
-    List<ActivityEntity> findByOrganizerIdNotAndNotDeleted(@Param("organizerId") Long organizerId);
+    List<ActivityEntity> findByOrganizerIdNotAndNotDeleted(@Param("organizerId") UUID organizerId);
 
     /**
      * Activités "à découvrir" pour un utilisateur : pas les siennes en tant qu'organisateur,
@@ -42,7 +43,7 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
               )
             """)
     List<ActivityEntity> findAvailableForUser(
-            @Param("userId") Long userId,
+            @Param("userId") UUID userId,
             @Param("today") LocalDate today,
             @Param("now") LocalTime now);
 
@@ -58,7 +59,7 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
               and a.id in (select s.activityId from SubscriptionEntity s where s.userId = :userId and s.unsubscribedAt is null)
             order by a.date asc, a.startTime asc
             """)
-    List<ActivityEntity> findSubscribedAsNonOrganizer(@Param("userId") Long userId);
+    List<ActivityEntity> findSubscribedAsNonOrganizer(@Param("userId") UUID userId);
 
     @Query("""
             select case when count(a) > 0 then true else false end
@@ -70,7 +71,7 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
               and a.endTime > :startTime
             """)
     boolean existsOverlappingForOrganizer(
-            @Param("organizerId") Long organizerId,
+            @Param("organizerId") UUID organizerId,
             @Param("date") LocalDate date,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);
@@ -86,7 +87,7 @@ public interface ActivityJpaRepository extends JpaRepository<ActivityEntity, Lon
               and a.endTime > :startTime
             """)
     boolean existsOverlappingForUsersAsOrganizer(
-            @Param("userIds") List<Long> userIds,
+            @Param("userIds") List<UUID> userIds,
             @Param("date") LocalDate date,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime,

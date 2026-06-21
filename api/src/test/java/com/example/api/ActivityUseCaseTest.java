@@ -29,6 +29,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.Optional;
+import java.util.UUID;
 
 import java.util.List;
 
@@ -51,6 +52,11 @@ class ActivityUseCaseTest {
     private static final Clock FIXED_CLOCK = Clock.fixed(
             Instant.parse("2026-03-22T12:00:00Z"),
             ZoneId.of("Europe/Paris"));
+
+    private static final UUID ORGANIZER_ID = UUID.fromString("00000000-0000-0000-0000-000000000005");
+    private static final UUID OTHER_USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000099");
+    private static final UUID PARTICIPANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000010");
+    private static final Long ACTIVITY_ID = 100L;
 
     @Mock
     private ActivityRepositoryPort activityRepository;
@@ -75,7 +81,7 @@ class ActivityUseCaseTest {
 
     @Test
     void should_create_activity_register_organizer_as_participant() {
-        Long organizerId = 5L;
+        UUID organizerId = ORGANIZER_ID;
         CreateActivityRequestDto dto = new CreateActivityRequestDto(
                 "Réunion",
                 "Sprint planning",
@@ -123,16 +129,16 @@ class ActivityUseCaseTest {
 
     @Test
     void should_throw_when_user_not_found() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> activityUseCase.create(1L, minimalDto()))
+        assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, minimalDto()))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Utilisateur");
     }
 
     @Test
     void should_throw_when_activity_type_not_found() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(mock(User.class)));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
         when(activityTypeRepository.findById(99L)).thenReturn(Optional.empty());
 
         CreateActivityRequestDto dto = new CreateActivityRequestDto(
@@ -145,14 +151,14 @@ class ActivityUseCaseTest {
                 5,
                 new LocationDto("r", null, "c", "city"));
 
-        assertThatThrownBy(() -> activityUseCase.create(1L, dto))
+        assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Type d'activité");
     }
 
     @Test
     void should_throw_when_date_in_past() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(mock(User.class)));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
         when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(
                 ActivityType.builder().id(2L).name("X").build()));
 
@@ -166,14 +172,14 @@ class ActivityUseCaseTest {
                 5,
                 new LocationDto("r", null, "c", "city"));
 
-        assertThatThrownBy(() -> activityUseCase.create(1L, dto))
+        assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("passé");
     }
 
     @Test
     void should_throw_when_end_time_not_after_start() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(mock(User.class)));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
         when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(
                 ActivityType.builder().id(2L).name("X").build()));
 
@@ -187,20 +193,20 @@ class ActivityUseCaseTest {
                 5,
                 new LocationDto("r", null, "c", "city"));
 
-        assertThatThrownBy(() -> activityUseCase.create(1L, dto))
+        assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("heure de fin");
     }
 
     @Test
     void should_throw_when_time_overlap() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(mock(User.class)));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
         when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(
                 ActivityType.builder().id(2L).name("X").build()));
-        when(activityRepository.existsOverlappingForOrganizer(eq(1L), any(), any(), any()))
+        when(activityRepository.existsOverlappingForOrganizer(eq(ORGANIZER_ID), any(), any(), any()))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> activityUseCase.create(1L, minimalDto()))
+        assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, minimalDto()))
                 .isInstanceOf(ConflictException.class);
     }
 
@@ -221,9 +227,6 @@ class ActivityUseCaseTest {
     // Horloge fixée à 2026-03-22T12:00:00Z → Paris 13:00 (UTC+1)
     // today = 2026-03-22 | now = 13:00
     // ═══════════════════════════════════════════════════════════════════════
-
-    private static final Long ACTIVITY_ID = 100L;
-    private static final Long ORGANIZER_ID = 5L;
 
     private Activity futureActivity() {
         return Activity.builder()
@@ -276,9 +279,8 @@ class ActivityUseCaseTest {
     @Test
     void should_throw_forbidden_when_caller_is_not_organizer_and_not_admin() {
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
-        Long otherUserId = 99L;
 
-        assertThatThrownBy(() -> activityUseCase.update(otherUserId, false, ACTIVITY_ID, validUpdateDto()))
+        assertThatThrownBy(() -> activityUseCase.update(OTHER_USER_ID, false, ACTIVITY_ID, validUpdateDto()))
                 .isInstanceOf(ForbiddenException.class);
     }
 
@@ -292,7 +294,7 @@ class ActivityUseCaseTest {
         when(activityRepository.update(any())).thenReturn(savedActivity());
         when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
 
-        assertThatCode(() -> activityUseCase.update(99L, true, ACTIVITY_ID, validUpdateDto()))
+        assertThatCode(() -> activityUseCase.update(OTHER_USER_ID, true, ACTIVITY_ID, validUpdateDto()))
                 .doesNotThrowAnyException();
     }
 
@@ -367,12 +369,11 @@ class ActivityUseCaseTest {
     @Test
     void should_throw_conflict_when_participant_has_overlapping_activity_as_organizer() {
         ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
-        Long participantId = 10L;
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
         when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(2);
         when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID))
-                .thenReturn(List.of(ORGANIZER_ID, participantId));
+                .thenReturn(List.of(ORGANIZER_ID, PARTICIPANT_ID));
         // 1er appel (organisateur) → false ; 2e appel (participant) → true
         when(activityRepository.existsOverlappingForUsersAsOrganizer(anyList(), any(), any(), any(), anyLong()))
                 .thenReturn(false, true);
@@ -385,12 +386,11 @@ class ActivityUseCaseTest {
     @Test
     void should_throw_conflict_when_participant_is_subscribed_to_overlapping_activity() {
         ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
-        Long participantId = 10L;
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
         when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(2);
         when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID))
-                .thenReturn(List.of(ORGANIZER_ID, participantId));
+                .thenReturn(List.of(ORGANIZER_ID, PARTICIPANT_ID));
         // 1er appel (organisateur) → false ; 2e appel (participant) → true
         when(subscriptionRepository.existsConflictingActivityForSubscribedUsers(anyList(), any(), any(), any(), anyLong()))
                 .thenReturn(false, true);
@@ -450,7 +450,7 @@ class ActivityUseCaseTest {
     void should_delete_when_admin_calls_delete() {
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
 
-        activityUseCase.delete(99L, true, ACTIVITY_ID);
+        activityUseCase.delete(OTHER_USER_ID, true, ACTIVITY_ID);
 
         verify(subscriptionRepository).deleteAllByActivityId(ACTIVITY_ID);
         verify(activityRepository).softDelete(ACTIVITY_ID);
@@ -479,7 +479,7 @@ class ActivityUseCaseTest {
     void should_throw_forbidden_when_not_organizer_and_not_admin_on_delete() {
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
 
-        assertThatThrownBy(() -> activityUseCase.delete(99L, false, ACTIVITY_ID))
+        assertThatThrownBy(() -> activityUseCase.delete(OTHER_USER_ID, false, ACTIVITY_ID))
                 .isInstanceOf(ForbiddenException.class);
         verify(subscriptionRepository, never()).deleteAllByActivityId(anyLong());
         verify(activityRepository, never()).softDelete(anyLong());
@@ -501,7 +501,7 @@ class ActivityUseCaseTest {
 
     @Test
     void should_unsubscribe_participant_and_return_updated_count() {
-        Long participantId = 42L;
+        UUID participantId = PARTICIPANT_ID;
         ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
         when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, participantId)).thenReturn(true);
@@ -524,12 +524,12 @@ class ActivityUseCaseTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("organisateur");
 
-        verify(subscriptionRepository, never()).unsubscribeParticipant(anyLong(), anyLong());
+        verify(subscriptionRepository, never()).unsubscribeParticipant(anyLong(), any());
     }
 
     @Test
     void should_reject_unsubscribe_when_not_subscribed() {
-        Long participantId = 42L;
+        UUID participantId = PARTICIPANT_ID;
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
         when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, participantId)).thenReturn(false);
 
@@ -537,6 +537,6 @@ class ActivityUseCaseTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("n'êtes pas inscrit");
 
-        verify(subscriptionRepository, never()).unsubscribeParticipant(anyLong(), anyLong());
+        verify(subscriptionRepository, never()).unsubscribeParticipant(anyLong(), any());
     }
 }

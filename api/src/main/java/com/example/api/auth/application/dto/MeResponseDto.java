@@ -3,13 +3,14 @@ package com.example.api.auth.application.dto;
 import com.example.api.user.domain.Role;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * Réponse du endpoint GET /auth/me.
  * Contient toutes les informations du profil de l'utilisateur connecté.
  */
 public record MeResponseDto(
-        Long id,
+        UUID id,
         String firstName,
         String lastName,
         String email,

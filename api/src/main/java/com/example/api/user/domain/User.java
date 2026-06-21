@@ -5,16 +5,17 @@ import lombok.Getter;
 import lombok.With;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Getter
 @Builder
 @With
 public class User {
-    private Long id;
+    /** Identifiant = sub Keycloak (UUID). Assigné au provisioning, pas généré. */
+    private UUID id;
     private String firstName;
     private String lastName;
     private String email;
-    private String password;
     private Role role;
     private String bio;
     private String phone;

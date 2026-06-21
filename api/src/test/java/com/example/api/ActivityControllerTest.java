@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,6 +31,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ActivityControllerTest {
 
+    private static final UUID USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final UUID ADMIN_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     @Mock
     private ActivityUseCase activityUseCase;
 
@@ -38,7 +42,7 @@ class ActivityControllerTest {
 
     @Test
     void should_return_201_created() {
-        JwtPrincipal principal = new JwtPrincipal(3L, "u@entreprise.com", Role.COLLABORATOR);
+        JwtPrincipal principal = new JwtPrincipal(USER_ID, "u@entreprise.com", Role.COLLABORATOR);
         CreateActivityRequestDto dto = new CreateActivityRequestDto(
                 "Atelier",
                 null,
@@ -62,14 +66,14 @@ class ActivityControllerTest {
                 LocalTime.of(17, 0),
                 "Organisateur Test");
 
-        when(activityUseCase.create(eq(3L), any(CreateActivityRequestDto.class))).thenReturn(responseDto);
+        when(activityUseCase.create(eq(USER_ID), any(CreateActivityRequestDto.class))).thenReturn(responseDto);
 
         ResponseEntity<ActivityResponseDto> response = activityController.create(principal, dto);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().id()).isEqualTo(42L);
-        verify(activityUseCase).create(3L, dto);
+        verify(activityUseCase).create(USER_ID, dto);
     }
 
     // ─── Tests : PUT /activities/{id} ───────────────────────────────────────
@@ -94,10 +98,10 @@ class ActivityControllerTest {
 
     @Test
     void should_return_200_ok_on_update() {
-        JwtPrincipal principal = new JwtPrincipal(3L, "u@entreprise.com", Role.COLLABORATOR);
+        JwtPrincipal principal = new JwtPrincipal(USER_ID, "u@entreprise.com", Role.COLLABORATOR);
         UpdateActivityRequestDto dto = updateDto();
 
-        when(activityUseCase.update(eq(3L), eq(false), eq(10L), any(UpdateActivityRequestDto.class)))
+        when(activityUseCase.update(eq(USER_ID), eq(false), eq(10L), any(UpdateActivityRequestDto.class)))
                 .thenReturn(sampleResponse());
 
         ResponseEntity<ActivityResponseDto> response = activityController.update(principal, 10L, dto);
@@ -110,47 +114,47 @@ class ActivityControllerTest {
 
     @Test
     void should_pass_is_admin_false_for_collaborator() {
-        JwtPrincipal principal = new JwtPrincipal(3L, "u@entreprise.com", Role.COLLABORATOR);
+        JwtPrincipal principal = new JwtPrincipal(USER_ID, "u@entreprise.com", Role.COLLABORATOR);
 
-        when(activityUseCase.update(eq(3L), eq(false), eq(10L), any(UpdateActivityRequestDto.class)))
+        when(activityUseCase.update(eq(USER_ID), eq(false), eq(10L), any(UpdateActivityRequestDto.class)))
                 .thenReturn(sampleResponse());
 
         activityController.update(principal, 10L, updateDto());
 
-        verify(activityUseCase).update(3L, false, 10L, updateDto());
+        verify(activityUseCase).update(USER_ID, false, 10L, updateDto());
     }
 
     @Test
     void should_pass_is_admin_true_for_admin() {
-        JwtPrincipal principal = new JwtPrincipal(1L, "admin@entreprise.com", Role.ADMIN);
+        JwtPrincipal principal = new JwtPrincipal(ADMIN_ID, "admin@entreprise.com", Role.ADMIN);
 
-        when(activityUseCase.update(eq(1L), eq(true), eq(10L), any(UpdateActivityRequestDto.class)))
+        when(activityUseCase.update(eq(ADMIN_ID), eq(true), eq(10L), any(UpdateActivityRequestDto.class)))
                 .thenReturn(sampleResponse());
 
         activityController.update(principal, 10L, updateDto());
 
-        verify(activityUseCase).update(1L, true, 10L, updateDto());
+        verify(activityUseCase).update(ADMIN_ID, true, 10L, updateDto());
     }
 
     @Test
     void should_return_204_no_content_on_delete() {
-        JwtPrincipal principal = new JwtPrincipal(3L, "u@entreprise.com", Role.COLLABORATOR);
-        doNothing().when(activityUseCase).delete(3L, false, 10L);
+        JwtPrincipal principal = new JwtPrincipal(USER_ID, "u@entreprise.com", Role.COLLABORATOR);
+        doNothing().when(activityUseCase).delete(USER_ID, false, 10L);
 
         ResponseEntity<Void> response = activityController.delete(principal, 10L);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getBody()).isNull();
-        verify(activityUseCase).delete(3L, false, 10L);
+        verify(activityUseCase).delete(USER_ID, false, 10L);
     }
 
     @Test
     void should_pass_is_admin_true_on_delete_for_admin() {
-        JwtPrincipal principal = new JwtPrincipal(1L, "admin@entreprise.com", Role.ADMIN);
-        doNothing().when(activityUseCase).delete(1L, true, 99L);
+        JwtPrincipal principal = new JwtPrincipal(ADMIN_ID, "admin@entreprise.com", Role.ADMIN);
+        doNothing().when(activityUseCase).delete(ADMIN_ID, true, 99L);
 
         activityController.delete(principal, 99L);
 
-        verify(activityUseCase).delete(1L, true, 99L);
+        verify(activityUseCase).delete(ADMIN_ID, true, 99L);
     }
 }
