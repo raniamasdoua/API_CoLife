@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -16,12 +17,13 @@ class ActivityUpdatePolicyTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 4, 5);
     private static final LocalTime NOW = LocalTime.of(14, 0);
+    private static final UUID ORGANIZER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     private Activity buildActivity(LocalDate date, LocalTime start, LocalTime end) {
         return Activity.builder()
                 .id(1L).title("Test").description(null).capacity(10)
                 .location(Location.builder().street("r").postalCode("p").city("c").build())
-                .typeId(1L).organizerId(1L)
+                .typeId(1L).organizerId(ORGANIZER_ID)
                 .date(date).startTime(start).endTime(end)
                 .deleted(false).build();
     }

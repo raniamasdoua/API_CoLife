@@ -10,34 +10,29 @@ public class UserMapper {
                 .firstName(entity.getFirstName())
                 .lastName(entity.getLastName())
                 .email(entity.getEmail())
-                .password(entity.getPassword())
                 .role(entity.getRole())
                 .bio(entity.getBio())
                 .phone(entity.getPhone())
                 .address(entity.getAddress())
-                .resetToken(entity.getResetToken())
-                .resetTokenExpiry(entity.getResetTokenExpiry())
                 .createdAt(entity.getCreatedAt())
                 .build();
     }
 
     /**
-     * Crée une nouvelle UserEntity à partir du domaine (utilisé uniquement
-     * lors de l'inscription — l'id est null, createdAt sera généré par Hibernate).
+     * Crée une nouvelle UserEntity à partir du domaine (provisioning JIT depuis Keycloak).
+     * L'id (= sub Keycloak) est assigné explicitement ; createdAt sera généré par Hibernate.
      */
     public static UserEntity toNewEntity(User user) {
         UserEntity entity = new UserEntity(
+                user.getId(),
                 user.getFirstName(),
                 user.getLastName(),
                 user.getEmail(),
-                user.getPassword(),
                 user.getRole()
         );
         entity.setBio(user.getBio());
         entity.setPhone(user.getPhone());
         entity.setAddress(user.getAddress());
-        entity.setResetToken(user.getResetToken());
-        entity.setResetTokenExpiry(user.getResetTokenExpiry());
         return entity;
     }
 

@@ -3,7 +3,6 @@ package com.example.api.user.presentation;
 import com.example.api.shared.openapi.OpenApiConfig;
 import com.example.api.shared.security.JwtPrincipal;
 import com.example.api.user.application.UserUseCase;
-import com.example.api.user.application.dto.ChangePasswordRequestDto;
 import com.example.api.user.application.dto.UpdateProfileRequestDto;
 import com.example.api.user.application.dto.UserResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/user")
@@ -76,30 +76,8 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = "Accès refusé (si non autorisé)"),
             @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
     })
-    public ResponseEntity<UserResponseDto> getUserById(@PathVariable Long id) {
+    public ResponseEntity<UserResponseDto> getUserById(@PathVariable UUID id) {
         return ResponseEntity.ok(userUseCase.getUserById(id));
-    }
-
-    /**
-     * PATCH /user/{id}/password
-     * Modifie le mot de passe après vérification du mot de passe actuel.
-     * Accessible uniquement par l'utilisateur lui-même.
-     */
-    @PatchMapping("/{id}/password")
-    @PreAuthorize("#id == authentication.principal.userId")
-    @Operation(summary = "Changer le mot de passe", description = "Modifie le mot de passe de l'utilisateur après vérification du mot de passe actuel. Accessible uniquement par l'utilisateur lui-même.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Mot de passe modifié"),
-            @ApiResponse(responseCode = "400", description = "Nouveau mot de passe invalide"),
-            @ApiResponse(responseCode = "401", description = "Mot de passe actuel incorrect ou non authentifié"),
-            @ApiResponse(responseCode = "403", description = "Accès refusé"),
-            @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
-    })
-    public ResponseEntity<Void> changePassword(
-            @PathVariable Long id,
-            @Valid @RequestBody ChangePasswordRequestDto request) {
-        userUseCase.changePassword(id, request);
-        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -119,7 +97,7 @@ public class UserController {
             @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
     })
     public ResponseEntity<UserResponseDto> updateProfile(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody UpdateProfileRequestDto request,
             @AuthenticationPrincipal JwtPrincipal principal) {
         return ResponseEntity.ok(userUseCase.updateProfile(id, request));

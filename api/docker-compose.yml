@@ -13,5 +13,32 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: colife_keycloak
+    command: start-dev --import-realm
+    environment:
+      # Compte admin de la console Keycloak (http://localhost:8081)
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # En dev : stockage embarqué (H2), pas de base dédiée requise.
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8081:8080"
+    depends_on:
+      - mailpit
+    volumes:
+      # Le realm "colife" est importé automatiquement au démarrage.
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
+  # Faux serveur SMTP de développement : capture les emails (vérification de compte,
+  # reset password…) sans les envoyer réellement. UI web sur http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: colife_mailpit
+    ports:
+      - "8025:8025"   # interface web (lire les emails)
+      - "1025:1025"   # port SMTP (utilisé par Keycloak via le réseau Docker)
+
 volumes:
   postgres_data:

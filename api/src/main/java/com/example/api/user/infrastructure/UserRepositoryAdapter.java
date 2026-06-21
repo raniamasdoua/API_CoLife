@@ -1,6 +1,7 @@
 package com.example.api.user.infrastructure;
 
 import com.example.api.shared.exception.ResourceNotFoundException;
+import com.example.api.user.domain.Role;
 import com.example.api.user.domain.User;
 import com.example.api.user.domain.UserMapper;
 import com.example.api.user.domain.UserRepositoryPort;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
@@ -20,7 +22,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     }
 
     @Override
-    public Optional<User> findById(Long id) {
+    public Optional<User> findById(UUID id) {
         return jpaRepository.findById(id)
                 .map(UserMapper::toDomain);
     }
@@ -51,31 +53,6 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         return jpaRepository.count();
     }
 
-    @Override
-    public void updatePassword(Long id, String encodedPassword) {
-        UserEntity entity = jpaRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
-        entity.setPassword(encodedPassword);
-        entity.setResetToken(null);
-        entity.setResetTokenExpiry(null);
-        jpaRepository.save(entity);
-    }
-
-    @Override
-    public Optional<User> findByResetToken(String resetToken) {
-        return jpaRepository.findByResetToken(resetToken)
-                .map(UserMapper::toDomain);
-    }
-
-    @Override
-    public void updateResetToken(Long id, String resetToken, java.time.LocalDateTime resetTokenExpiry) {
-        UserEntity entity = jpaRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
-        entity.setResetToken(resetToken);
-        entity.setResetTokenExpiry(resetTokenExpiry);
-        jpaRepository.save(entity);
-    }
-
     /**
      * Met à jour uniquement les champs modifiables (bio, phone, address)
      * d'un utilisateur existant.
@@ -87,5 +64,15 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         UserMapper.updateEntity(entity, user);
         UserEntity saved = jpaRepository.save(entity);
         return UserMapper.toDomain(saved);
+    }
+
+    @Override
+    public void updateRole(UUID id, Role role) {
+        jpaRepository.findById(id).ifPresent(entity -> {
+            if (entity.getRole() != role) {
+                entity.setRole(role);
+                jpaRepository.save(entity);
+            }
+        });
     }
 }

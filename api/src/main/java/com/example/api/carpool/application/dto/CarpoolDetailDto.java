@@ -4,11 +4,12 @@ import com.example.api.carpool.domain.CarpoolStatus;
 
 import java.time.LocalTime;
 import java.util.List;
+import java.util.UUID;
 
 public record CarpoolDetailDto(
         Long id,
         Long activityId,
-        Long driverId,
+        UUID driverId,
         String driverName,
         LocalTime departureTime,
         int maxPassengers,

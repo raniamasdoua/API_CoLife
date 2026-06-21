@@ -1,7 +1,9 @@
 package com.example.api.carpool.application.dto;
 
+import java.util.UUID;
+
 public record CarpoolPassengerSummaryDto(
-        Long userId,
+        UUID userId,
         String fullName
 ) {
 }

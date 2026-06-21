@@ -2,6 +2,7 @@ package com.example.api.carpool.domain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface CarpoolRepositoryPort {
 
@@ -16,10 +17,10 @@ public interface CarpoolRepositoryPort {
     List<Carpool> findAllActiveByActivityId(Long activityId);
 
     /** Retourne le covoiturage actif dont le conducteur est l'utilisateur donné. */
-    Optional<Carpool> findActiveByDriverIdAndActivityId(Long driverId, Long activityId);
+    Optional<Carpool> findActiveByDriverIdAndActivityId(UUID driverId, Long activityId);
 
     /** Annule le covoiturage actif d'un conducteur pour une activité. */
-    void cancelByDriverIdAndActivityId(Long driverId, Long activityId);
+    void cancelByDriverIdAndActivityId(UUID driverId, Long activityId);
 
     /** Annule tous les covoiturages actifs d'une activité (suppression de l'activité). */
     void cancelAllByActivityId(Long activityId);

@@ -8,14 +8,15 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface CarpoolPassengerJpaRepository extends JpaRepository<CarpoolPassengerEntity, Long> {
 
     int countByCarpoolIdAndLeftAtIsNull(Long carpoolId);
 
-    boolean existsByCarpoolIdAndPassengerIdAndLeftAtIsNull(Long carpoolId, Long passengerId);
+    boolean existsByCarpoolIdAndPassengerIdAndLeftAtIsNull(Long carpoolId, UUID passengerId);
 
-    Optional<CarpoolPassengerEntity> findByCarpoolIdAndPassengerIdAndLeftAtIsNull(Long carpoolId, Long passengerId);
+    Optional<CarpoolPassengerEntity> findByCarpoolIdAndPassengerIdAndLeftAtIsNull(Long carpoolId, UUID passengerId);
 
     List<CarpoolPassengerEntity> findByCarpoolIdAndLeftAtIsNull(Long carpoolId);
 
@@ -26,14 +27,14 @@ public interface CarpoolPassengerJpaRepository extends JpaRepository<CarpoolPass
               AND cp.leftAt IS NULL
             """)
     Optional<CarpoolPassengerEntity> findActiveByPassengerIdAndCarpoolIds(
-            @Param("passengerId") Long passengerId,
+            @Param("passengerId") UUID passengerId,
             @Param("carpoolIds") List<Long> carpoolIds);
 
     @Modifying
     @Query("UPDATE CarpoolPassengerEntity cp SET cp.leftAt = :now WHERE cp.carpoolId = :carpoolId AND cp.passengerId = :passengerId AND cp.leftAt IS NULL")
     void softDeleteByPassengerIdAndCarpoolId(
             @Param("carpoolId") Long carpoolId,
-            @Param("passengerId") Long passengerId,
+            @Param("passengerId") UUID passengerId,
             @Param("now") LocalDateTime now);
 
     @Modifying

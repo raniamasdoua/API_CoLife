@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class CarpoolPassengerRepositoryAdapter implements CarpoolPassengerRepositoryPort {
@@ -34,12 +35,12 @@ public class CarpoolPassengerRepositoryAdapter implements CarpoolPassengerReposi
     }
 
     @Override
-    public boolean existsActive(Long carpoolId, Long passengerId) {
+    public boolean existsActive(Long carpoolId, UUID passengerId) {
         return jpaRepository.existsByCarpoolIdAndPassengerIdAndLeftAtIsNull(carpoolId, passengerId);
     }
 
     @Override
-    public Optional<CarpoolPassenger> findActiveByPassengerIdAndCarpoolIds(Long passengerId, List<Long> carpoolIds) {
+    public Optional<CarpoolPassenger> findActiveByPassengerIdAndCarpoolIds(UUID passengerId, List<Long> carpoolIds) {
         if (carpoolIds == null || carpoolIds.isEmpty()) {
             return Optional.empty();
         }
@@ -56,7 +57,7 @@ public class CarpoolPassengerRepositoryAdapter implements CarpoolPassengerReposi
     }
 
     @Override
-    public void removePassenger(Long carpoolId, Long passengerId) {
+    public void removePassenger(Long carpoolId, UUID passengerId) {
         jpaRepository.softDeleteByPassengerIdAndCarpoolId(carpoolId, passengerId, LocalDateTime.now());
     }
 

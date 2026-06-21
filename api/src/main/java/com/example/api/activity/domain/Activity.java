@@ -5,6 +5,7 @@ import lombok.Getter;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.UUID;
 
 @Getter
 @Builder
@@ -15,7 +16,7 @@ public class Activity {
     private int capacity;
     private Location location;
     private Long typeId;
-    private Long organizerId;
+    private UUID organizerId;
     private LocalDate date;
     private LocalTime startTime;
     private LocalTime endTime;

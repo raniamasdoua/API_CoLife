@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "carpool_passengers")
@@ -21,7 +22,7 @@ public class CarpoolPassengerEntity {
     private Long carpoolId;
 
     @Column(nullable = false)
-    private Long passengerId;
+    private UUID passengerId;
 
     @Column(nullable = false)
     private LocalDateTime joinedAt;

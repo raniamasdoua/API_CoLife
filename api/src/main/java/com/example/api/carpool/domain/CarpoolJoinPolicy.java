@@ -2,6 +2,8 @@ package com.example.api.carpool.domain;
 
 import com.example.api.shared.exception.BusinessException;
 
+import java.util.UUID;
+
 /**
  * Règles métier pour rejoindre une proposition de covoiturage existante.
  */
@@ -10,7 +12,7 @@ public final class CarpoolJoinPolicy {
     private CarpoolJoinPolicy() {
     }
 
-    public static void validate(Carpool carpool, Long userId, boolean userAlreadyHasCarpoolRole,
+    public static void validate(Carpool carpool, UUID userId, boolean userAlreadyHasCarpoolRole,
                                 int currentPassengerCount) {
         if (carpool.getStatus() == CarpoolStatus.CANCELLED) {
             throw new BusinessException("Cette proposition de covoiturage est annulée");

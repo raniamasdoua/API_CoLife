@@ -26,6 +26,6 @@ public class OpenApiConfig {
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("JWT")
-                                .description("Token JWT obtenu via POST /auth/login (header: Authorization: Bearer <token>).")));
+                                .description("Token JWT (access token) émis par Keycloak (header: Authorization: Bearer <token>).")));
     }
 }

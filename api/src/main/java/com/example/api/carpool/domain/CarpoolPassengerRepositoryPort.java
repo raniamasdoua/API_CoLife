@@ -2,6 +2,7 @@ package com.example.api.carpool.domain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface CarpoolPassengerRepositoryPort {
 
@@ -9,13 +10,13 @@ public interface CarpoolPassengerRepositoryPort {
 
     int countActive(Long carpoolId);
 
-    boolean existsActive(Long carpoolId, Long passengerId);
+    boolean existsActive(Long carpoolId, UUID passengerId);
 
     /**
      * Retourne le covoiturage dont l'utilisateur est passager actif,
      * parmi une liste de covoiturages (tous liés à la même activité).
      */
-    Optional<CarpoolPassenger> findActiveByPassengerIdAndCarpoolIds(Long passengerId, List<Long> carpoolIds);
+    Optional<CarpoolPassenger> findActiveByPassengerIdAndCarpoolIds(UUID passengerId, List<Long> carpoolIds);
 
     /**
      * Retourne tous les passagers actifs d'un covoiturage.
@@ -25,7 +26,7 @@ public interface CarpoolPassengerRepositoryPort {
     /**
      * Retire un passager d'un covoiturage (soft-delete).
      */
-    void removePassenger(Long carpoolId, Long passengerId);
+    void removePassenger(Long carpoolId, UUID passengerId);
 
     /**
      * Retire tous les passagers actifs d'un covoiturage (annulation conducteur).

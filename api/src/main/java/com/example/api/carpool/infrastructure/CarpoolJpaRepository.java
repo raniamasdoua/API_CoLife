@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface CarpoolJpaRepository extends JpaRepository<CarpoolEntity, Long> {
 
@@ -15,11 +16,11 @@ public interface CarpoolJpaRepository extends JpaRepository<CarpoolEntity, Long>
 
     List<CarpoolEntity> findByActivityIdAndStatus(Long activityId, CarpoolStatus status);
 
-    Optional<CarpoolEntity> findByDriverIdAndActivityIdAndStatus(Long driverId, Long activityId, CarpoolStatus status);
+    Optional<CarpoolEntity> findByDriverIdAndActivityIdAndStatus(UUID driverId, Long activityId, CarpoolStatus status);
 
     @Modifying
     @Query("UPDATE CarpoolEntity c SET c.status = 'CANCELLED' WHERE c.driverId = :driverId AND c.activityId = :activityId AND c.status = 'ACTIVE'")
-    void cancelByDriverIdAndActivityId(@Param("driverId") Long driverId, @Param("activityId") Long activityId);
+    void cancelByDriverIdAndActivityId(@Param("driverId") UUID driverId, @Param("activityId") Long activityId);
 
     @Modifying
     @Query("UPDATE CarpoolEntity c SET c.status = 'CANCELLED' WHERE c.activityId = :activityId AND c.status = 'ACTIVE'")

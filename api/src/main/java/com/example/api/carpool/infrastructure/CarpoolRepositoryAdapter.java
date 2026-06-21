@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class CarpoolRepositoryAdapter implements CarpoolRepositoryPort {
@@ -43,13 +44,13 @@ public class CarpoolRepositoryAdapter implements CarpoolRepositoryPort {
     }
 
     @Override
-    public Optional<Carpool> findActiveByDriverIdAndActivityId(Long driverId, Long activityId) {
+    public Optional<Carpool> findActiveByDriverIdAndActivityId(UUID driverId, Long activityId) {
         return carpoolJpaRepository.findByDriverIdAndActivityIdAndStatus(driverId, activityId, CarpoolStatus.ACTIVE)
                 .map(CarpoolMapper::toDomain);
     }
 
     @Override
-    public void cancelByDriverIdAndActivityId(Long driverId, Long activityId) {
+    public void cancelByDriverIdAndActivityId(UUID driverId, Long activityId) {
         carpoolJpaRepository.cancelByDriverIdAndActivityId(driverId, activityId);
     }
 

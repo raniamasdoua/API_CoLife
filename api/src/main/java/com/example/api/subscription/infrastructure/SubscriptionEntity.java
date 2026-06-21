@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "subscriptions")
@@ -17,7 +18,7 @@ public class SubscriptionEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private Long activityId;
-    private Long userId;
+    private UUID userId;
     private LocalDateTime subscribedAt;
 
     /** Renseigné lors d'une désinscription volontaire (traçabilité, pas de suppression physique). */

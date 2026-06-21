@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class CarpoolUseCase {
@@ -55,7 +56,7 @@ public class CarpoolUseCase {
     /* ────────────────────────────── List ─────────────────────────────────── */
 
     @Transactional(readOnly = true)
-    public ActivityCarpoolsResponseDto listCarpools(Long activityId, Long currentUserId) {
+    public ActivityCarpoolsResponseDto listCarpools(Long activityId, UUID currentUserId) {
         Activity activity = findValidActivity(activityId);
         requireOffSite(activity);
 
@@ -93,7 +94,7 @@ public class CarpoolUseCase {
     /* ──────────────────────────── Create ─────────────────────────────────── */
 
     @Transactional
-    public CarpoolDetailDto createCarpool(Long activityId, Long userId, CarpoolRequestDto dto) {
+    public CarpoolDetailDto createCarpool(Long activityId, UUID userId, CarpoolRequestDto dto) {
         Activity activity = findValidActivity(activityId);
         requireOffSite(activity);
         requireActivityNotPast(activity);
@@ -124,7 +125,7 @@ public class CarpoolUseCase {
     /* ──────────────────────────── Update ─────────────────────────────────── */
 
     @Transactional
-    public CarpoolDetailDto updateCarpoolByDriver(Long activityId, Long carpoolId, Long userId, CarpoolRequestDto dto) {
+    public CarpoolDetailDto updateCarpoolByDriver(Long activityId, Long carpoolId, UUID userId, CarpoolRequestDto dto) {
         Activity activity = findValidActivity(activityId);
         requireOffSite(activity);
         requireActivityNotPast(activity);
@@ -166,7 +167,7 @@ public class CarpoolUseCase {
     /* ──────────────────────────── Cancel ─────────────────────────────────── */
 
     @Transactional
-    public void cancelCarpoolByDriver(Long activityId, Long carpoolId, Long userId) {
+    public void cancelCarpoolByDriver(Long activityId, Long carpoolId, UUID userId) {
         findValidActivity(activityId);
 
         Carpool carpool = carpoolRepository.findById(carpoolId)
@@ -189,7 +190,7 @@ public class CarpoolUseCase {
     /* ───────────────────────────── Join ──────────────────────────────────── */
 
     @Transactional
-    public CarpoolDetailDto joinCarpool(Long activityId, Long carpoolId, Long userId) {
+    public CarpoolDetailDto joinCarpool(Long activityId, Long carpoolId, UUID userId) {
         Activity activity = findValidActivity(activityId);
         requireOffSite(activity);
         requireActivityNotPast(activity);
@@ -223,7 +224,7 @@ public class CarpoolUseCase {
     /* ───────────────────────────── Leave ─────────────────────────────────── */
 
     @Transactional
-    public void leaveCarpool(Long activityId, Long carpoolId, Long userId) {
+    public void leaveCarpool(Long activityId, Long carpoolId, UUID userId) {
         Activity activity = findValidActivity(activityId);
         requireActivityNotPast(activity);
 
@@ -267,13 +268,13 @@ public class CarpoolUseCase {
         }
     }
 
-    private void requireNoExistingCarpoolRole(Long activityId, Long userId) {
+    private void requireNoExistingCarpoolRole(Long activityId, UUID userId) {
         if (userAlreadyHasCarpoolRole(activityId, userId)) {
             throw new BusinessException("Vous avez déjà un rôle de covoiturage pour cette activité");
         }
     }
 
-    private boolean userAlreadyHasCarpoolRole(Long activityId, Long userId) {
+    private boolean userAlreadyHasCarpoolRole(Long activityId, UUID userId) {
         boolean isDriver = carpoolRepository.findActiveByDriverIdAndActivityId(userId, activityId).isPresent();
         if (isDriver) return true;
         List<Carpool> activeCarpools = carpoolRepository.findAllActiveByActivityId(activityId);

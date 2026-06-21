@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +33,8 @@ class UserUseCaseTest {
     private UserUseCase userUseCase;
 
     private static final LocalDate CREATED_AT = LocalDate.of(2024, 10, 1);
+    private static final UUID USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final UUID MISSING_ID = UUID.fromString("99999999-9999-9999-9999-999999999999");
 
     // ─── getUserById ──────────────────────────────────────────────────────────
 
@@ -39,7 +42,7 @@ class UserUseCaseTest {
     void should_return_full_profile_when_user_found() {
         // GIVEN
         User user = User.builder()
-                .id(1L)
+                .id(USER_ID)
                 .firstName("Alice")
                 .lastName("Smith")
                 .email("alice@entreprise.com")
@@ -49,13 +52,13 @@ class UserUseCaseTest {
                 .address("Paris, France")
                 .createdAt(CREATED_AT)
                 .build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
 
         // WHEN
-        UserResponseDto result = userUseCase.getUserById(1L);
+        UserResponseDto result = userUseCase.getUserById(USER_ID);
 
         // THEN
-        assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.id()).isEqualTo(USER_ID);
         assertThat(result.firstName()).isEqualTo("Alice");
         assertThat(result.lastName()).isEqualTo("Smith");
         assertThat(result.email()).isEqualTo("alice@entreprise.com");
@@ -69,10 +72,10 @@ class UserUseCaseTest {
     @Test
     void should_throw_not_found_when_user_id_does_not_exist() {
         // GIVEN
-        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+        when(userRepository.findById(MISSING_ID)).thenReturn(Optional.empty());
 
         // WHEN / THEN
-        assertThatThrownBy(() -> userUseCase.getUserById(999L))
+        assertThatThrownBy(() -> userUseCase.getUserById(MISSING_ID))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Utilisateur non trouvé");
     }
@@ -83,7 +86,7 @@ class UserUseCaseTest {
     void should_update_bio_phone_address_and_return_updated_profile() {
         // GIVEN
         User existing = User.builder()
-                .id(1L)
+                .id(USER_ID)
                 .firstName("Alice")
                 .lastName("Smith")
                 .email("alice@entreprise.com")
@@ -99,14 +102,14 @@ class UserUseCaseTest {
                 .withPhone("+33611111111")
                 .withAddress("Paris, France");
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(existing));
         when(userRepository.update(any())).thenReturn(savedUser);
 
         UpdateProfileRequestDto request = new UpdateProfileRequestDto(
                 "Nouvelle bio", "+33611111111", "Paris, France");
 
         // WHEN
-        UserResponseDto result = userUseCase.updateProfile(1L, request);
+        UserResponseDto result = userUseCase.updateProfile(USER_ID, request);
 
         // THEN
         assertThat(result.bio()).isEqualTo("Nouvelle bio");
@@ -124,7 +127,7 @@ class UserUseCaseTest {
     void should_keep_existing_values_when_patch_fields_are_null() {
         // GIVEN
         User existing = User.builder()
-                .id(1L)
+                .id(USER_ID)
                 .firstName("Alice")
                 .lastName("Smith")
                 .email("alice@entreprise.com")
@@ -137,7 +140,7 @@ class UserUseCaseTest {
 
         User savedUser = existing.withPhone("+33699999999");
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(existing));
         when(userRepository.update(any())).thenReturn(savedUser);
 
         // Seul le phone est modifié — bio et address sont null (patch partiel)
@@ -145,7 +148,7 @@ class UserUseCaseTest {
                 null, "+33699999999", null);
 
         // WHEN
-        UserResponseDto result = userUseCase.updateProfile(1L, request);
+        userUseCase.updateProfile(USER_ID, request);
 
         // THEN — les champs null gardent leurs valeurs
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
@@ -159,10 +162,10 @@ class UserUseCaseTest {
     @Test
     void should_throw_not_found_when_updating_non_existing_user() {
         // GIVEN
-        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+        when(userRepository.findById(MISSING_ID)).thenReturn(Optional.empty());
 
         // WHEN / THEN
-        assertThatThrownBy(() -> userUseCase.updateProfile(999L,
+        assertThatThrownBy(() -> userUseCase.updateProfile(MISSING_ID,
                 new UpdateProfileRequestDto("bio", null, null)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Utilisateur non trouvé");

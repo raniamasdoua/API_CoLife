@@ -8,7 +8,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users",
@@ -18,9 +18,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class UserEntity {
 
+    /**
+     * Clé primaire = sub Keycloak (UUID). Assignée explicitement au provisioning JIT
+     * (pas de @GeneratedValue : l'identité provient de l'IdP, pas de la base).
+     */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private UUID id;
 
     @Column(nullable = false)
     private String firstName;
@@ -31,9 +34,6 @@ public class UserEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
-    private String password;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
@@ -43,24 +43,19 @@ public class UserEntity {
     private String phone;
     @Column(length = 255)
     private String address;
-
-    private String resetToken;
-
-    private LocalDateTime resetTokenExpiry;
-
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDate createdAt;
 
-    public UserEntity(String firstName,
+    public UserEntity(UUID id,
+                      String firstName,
                       String lastName,
                       String email,
-                      String password,
                       Role role) {
+        this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
-        this.password = password;
         this.role = role;
     }
 }

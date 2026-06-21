@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class ActivityUseCase {
@@ -66,7 +67,7 @@ public class ActivityUseCase {
     }
 
     @Transactional
-    public ActivityResponseDto create(Long organizerId, CreateActivityRequestDto dto) {
+    public ActivityResponseDto create(UUID organizerId, CreateActivityRequestDto dto) {
         userRepository.findById(organizerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 
@@ -170,7 +171,7 @@ public class ActivityUseCase {
     }
 
     @Transactional
-    public ActivityResponseDto update(Long callerId, boolean isAdmin, Long activityId, UpdateActivityRequestDto dto) {
+    public ActivityResponseDto update(UUID callerId, boolean isAdmin, Long activityId, UpdateActivityRequestDto dto) {
         Activity activity = activityRepository.findById(activityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
         if (activity.isDeleted()) {
@@ -191,9 +192,9 @@ public class ActivityUseCase {
         int participantCount = subscriptionRepository.countParticipants(activityId);
         ActivityUpdatePolicy.validateNewSlot(dto.date(), today, now, dto.startTime(), dto.endTime(), dto.capacity(), participantCount);
 
-        List<Long> participantIds = subscriptionRepository.findUserIdsByActivityId(activityId);
+        List<UUID> participantIds = subscriptionRepository.findUserIdsByActivityId(activityId);
 
-        List<Long> participantOnlyIds = participantIds.stream()
+        List<UUID> participantOnlyIds = participantIds.stream()
                 .filter(id -> !id.equals(activity.getOrganizerId()))
                 .toList();
 
@@ -263,7 +264,7 @@ public class ActivityUseCase {
     }
 
     @Transactional
-    public void delete(Long callerId, boolean isAdmin, Long activityId) {
+    public void delete(UUID callerId, boolean isAdmin, Long activityId) {
         Activity activity = activityRepository.findById(activityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
         if (activity.isDeleted()) {
@@ -291,7 +292,7 @@ public class ActivityUseCase {
 
     @Transactional(readOnly = true)
     public List<ParticipantDto> getParticipants(Long activityId) {
-        List<Long> userIds = subscriptionRepository.findUserIdsByActivityId(activityId);
+        List<UUID> userIds = subscriptionRepository.findUserIdsByActivityId(activityId);
         return userIds.stream()
                 .filter(Objects::nonNull)
                 .map(uid -> userRepository.findById(uid)
@@ -311,19 +312,19 @@ public class ActivityUseCase {
     }
 
     @Transactional(readOnly = true)
-    public List<ActivityResponseDto> getMyActivities(Long userId) {
+    public List<ActivityResponseDto> getMyActivities(UUID userId) {
         List<Activity> activities = activityRepository.findByOrganizerId(userId);
         return toResponseList(activities);
     }
 
     @Transactional(readOnly = true)
-    public List<ActivityResponseDto> getRegisteredActivities(Long userId) {
+    public List<ActivityResponseDto> getRegisteredActivities(UUID userId) {
         List<Activity> activities = activityRepository.findSubscribedAsNonOrganizer(userId);
         return toResponseList(activities);
     }
 
     @Transactional(readOnly = true)
-    public List<ActivityResponseDto> getAvailableActivities(Long userId) {
+    public List<ActivityResponseDto> getAvailableActivities(UUID userId) {
         LocalDate today = LocalDate.now(clock);
         LocalTime now = LocalTime.now(clock);
         List<Activity> activities = activityRepository.findAvailableForUser(userId, today, now);
@@ -336,7 +337,7 @@ public class ActivityUseCase {
     }
 
     @Transactional
-    public ActivityResponseDto subscribe(Long userId, Long activityId) {
+    public ActivityResponseDto subscribe(UUID userId, Long activityId) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 
@@ -397,7 +398,7 @@ public class ActivityUseCase {
     }
 
     @Transactional
-    public ActivityResponseDto unsubscribe(Long userId, Long activityId) {
+    public ActivityResponseDto unsubscribe(UUID userId, Long activityId) {
         Activity activity = activityRepository.findById(activityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
         if (activity.isDeleted()) {
@@ -448,7 +449,7 @@ public class ActivityUseCase {
 
     private List<ActivityResponseDto> toResponseList(List<Activity> activities) {
         Map<Long, ActivityType> typeCache = new HashMap<>();
-        Map<Long, String> organizerCache = new HashMap<>();
+        Map<UUID, String> organizerCache = new HashMap<>();
         return activities.stream()
                 .map(activity -> {
                     ActivityType type = typeCache.computeIfAbsent(

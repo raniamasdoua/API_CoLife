@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "carpools")
@@ -22,7 +23,7 @@ public class CarpoolEntity {
     private Long activityId;
 
     @Column(nullable = false)
-    private Long driverId;
+    private UUID driverId;
 
     @Column(nullable = false)
     private LocalTime departureTime;

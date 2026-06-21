@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort {
@@ -17,12 +18,12 @@ public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort
     }
 
     @Override
-    public boolean existsByActivityIdAndUserId(Long activityId, Long userId) {
+    public boolean existsByActivityIdAndUserId(Long activityId, UUID userId) {
         return jpa.existsByActivityIdAndUserIdAndUnsubscribedAtIsNull(activityId, userId);
     }
 
     @Override
-    public void registerParticipant(Long activityId, Long userId) {
+    public void registerParticipant(Long activityId, UUID userId) {
         jpa.findByActivityIdAndUserId(activityId, userId).ifPresentOrElse(
                 entity -> {
                     if (entity.getUnsubscribedAt() == null) {
@@ -44,7 +45,7 @@ public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort
     }
 
     @Override
-    public void unsubscribeParticipant(Long activityId, Long userId) {
+    public void unsubscribeParticipant(Long activityId, UUID userId) {
         SubscriptionEntity entity = jpa.findByActivityIdAndUserId(activityId, userId)
                 .orElseThrow(() -> new IllegalStateException("Aucune inscription pour cette activité"));
         if (entity.getUnsubscribedAt() != null) {
@@ -60,13 +61,13 @@ public class SubscriptionRepositoryAdapter implements SubscriptionRepositoryPort
     }
 
     @Override
-    public List<Long> findUserIdsByActivityId(Long activityId) {
+    public List<UUID> findUserIdsByActivityId(Long activityId) {
         return jpa.findUserIdsByActivityId(activityId);
     }
 
     @Override
     public boolean existsConflictingActivityForSubscribedUsers(
-            List<Long> userIds, LocalDate date, LocalTime start, LocalTime end, Long excludeActivityId) {
+            List<UUID> userIds, LocalDate date, LocalTime start, LocalTime end, Long excludeActivityId) {
         if (userIds == null || userIds.isEmpty()) {
             return false;
         }
