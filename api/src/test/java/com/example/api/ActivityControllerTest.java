@@ -6,6 +6,7 @@ import com.example.api.activity.application.dto.ActivityTypeDto;
 import com.example.api.activity.application.dto.CreateActivityRequestDto;
 import com.example.api.activity.application.dto.LocationDto;
 import com.example.api.activity.application.dto.UpdateActivityRequestDto;
+import com.example.api.activity.domain.LocationType;
 import com.example.api.activity.presentation.ActivityController;
 import com.example.api.shared.security.JwtPrincipal;
 import com.example.api.user.domain.Role;
@@ -51,7 +52,9 @@ class ActivityControllerTest {
                 LocalTime.of(15, 0),
                 LocalTime.of(17, 0),
                 12,
-                new LocationDto("5 av", "Bât B", "69000", "Lyon"));
+                new LocationDto(null, "5 av", "Bât B", "69000", "Lyon"),
+                LocationType.OFF_SITE,
+                null);
 
         ActivityResponseDto responseDto = new ActivityResponseDto(
                 42L,
@@ -59,12 +62,15 @@ class ActivityControllerTest {
                 null,
                 12,
                 1,
-                new LocationDto("5 av", "Bât B", "69000", "Lyon"),
+                new LocationDto(null, "5 av", "Bât B", "69000", "Lyon"),
                 new ActivityTypeDto(1L, "Culture"),
                 LocalDate.of(2026, 5, 1),
                 LocalTime.of(15, 0),
                 LocalTime.of(17, 0),
-                "Organisateur Test");
+                "Organisateur Test",
+                false,
+                LocationType.OFF_SITE,
+                null);
 
         when(activityUseCase.create(eq(USER_ID), any(CreateActivityRequestDto.class))).thenReturn(responseDto);
 
@@ -81,11 +87,14 @@ class ActivityControllerTest {
     private ActivityResponseDto sampleResponse() {
         return new ActivityResponseDto(
                 42L, "Titre modifié", "Desc", 10, 1,
-                new LocationDto("1 rue A", null, "75001", "Paris"),
+                new LocationDto(null, "1 rue A", null, "75001", "Paris"),
                 new ActivityTypeDto(1L, "Sport"),
                 LocalDate.of(2026, 5, 10),
                 LocalTime.of(14, 0), LocalTime.of(16, 0),
-                "Organisateur Test");
+                "Organisateur Test",
+                false,
+                LocationType.OFF_SITE,
+                null);
     }
 
     private UpdateActivityRequestDto updateDto() {
@@ -93,7 +102,8 @@ class ActivityControllerTest {
                 "Titre modifié", "Desc", 1L,
                 LocalDate.of(2026, 5, 10),
                 LocalTime.of(14, 0), LocalTime.of(16, 0), 10,
-                new LocationDto("1 rue A", null, "75001", "Paris"));
+                new LocationDto(null, "1 rue A", null, "75001", "Paris"),
+                LocationType.OFF_SITE);
     }
 
     @Test

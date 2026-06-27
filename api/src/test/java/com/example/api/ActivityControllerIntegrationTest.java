@@ -2,6 +2,7 @@ package com.example.api;
 
 import com.example.api.activity.application.dto.CreateActivityRequestDto;
 import com.example.api.activity.application.dto.LocationDto;
+import com.example.api.activity.domain.LocationType;
 import com.example.api.activity.infrastructure.ActivityEntity;
 import com.example.api.activity.infrastructure.ActivityJpaRepository;
 import com.example.api.activity.infrastructure.LocationEmbeddable;
@@ -137,7 +138,9 @@ class ActivityControllerIntegrationTest {
                 LocalTime.of(18, 0),
                 LocalTime.of(20, 0),
                 14,
-                new LocationDto("Stade municipal", null, "44000", "Nantes"));
+                new LocationDto(null, "Stade municipal", null, "44000", "Nantes"),
+                LocationType.OFF_SITE,
+                null);
 
         mockMvc.perform(post("/activities")
                         .with(authFor(userId, userEmail, Role.COLLABORATOR))
@@ -155,7 +158,9 @@ class ActivityControllerIntegrationTest {
                 "X", null, activityTypeId,
                 LocalDate.now().plusDays(1),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                new LocationDto("a", null, "b", "c"));
+                new LocationDto(null, "a", null, "b", "c"),
+                LocationType.OFF_SITE,
+                null);
 
         mockMvc.perform(post("/activities")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -191,7 +196,9 @@ class ActivityControllerIntegrationTest {
                 "T", null, 999_999L,
                 LocalDate.now().plusDays(2),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                new LocationDto("a", null, "b", "c"));
+                new LocationDto(null, "a", null, "b", "c"),
+                LocationType.OFF_SITE,
+                null);
 
         mockMvc.perform(post("/activities")
                         .with(authFor(userId, userEmail, Role.COLLABORATOR))
@@ -206,7 +213,9 @@ class ActivityControllerIntegrationTest {
                 "A", null, activityTypeId,
                 LocalDate.now().plusDays(20),
                 LocalTime.of(14, 0), LocalTime.of(16, 0), 5,
-                new LocationDto("a", null, "b", "c"));
+                new LocationDto(null, "a", null, "b", "c"),
+                LocationType.OFF_SITE,
+                null);
 
         mockMvc.perform(post("/activities")
                         .with(authFor(userId, userEmail, Role.COLLABORATOR))
@@ -416,7 +425,9 @@ class ActivityControllerIntegrationTest {
                 "Activité B", null, activityTypeId,
                 LocalDate.now().plusDays(10),
                 LocalTime.of(14, 0), LocalTime.of(16, 0), 5,
-                new LocationDto("2 rue B", null, "75002", "Paris"));
+                new LocationDto(null, "2 rue B", null, "75002", "Paris"),
+                LocationType.OFF_SITE,
+                null);
 
         String createResponse = mockMvc.perform(post("/activities")
                         .with(authFor(userId, userEmail, Role.COLLABORATOR))

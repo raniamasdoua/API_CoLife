@@ -8,8 +8,11 @@ import com.example.api.activity.application.dto.UpdateActivityRequestDto;
 import com.example.api.activity.domain.Activity;
 import com.example.api.activity.domain.ActivityRepositoryPort;
 import com.example.api.activity.domain.Location;
+import com.example.api.activity.domain.LocationType;
 import com.example.api.activityType.domain.ActivityType;
 import com.example.api.activityType.domain.ActivityTypeRepositoryPort;
+import com.example.api.carpool.domain.CarpoolPassengerRepositoryPort;
+import com.example.api.carpool.domain.CarpoolRepositoryPort;
 import com.example.api.shared.exception.BusinessException;
 import com.example.api.shared.exception.ConflictException;
 import com.example.api.shared.exception.ForbiddenException;
@@ -66,6 +69,10 @@ class ActivityUseCaseTest {
     private UserRepositoryPort userRepository;
     @Mock
     private SubscriptionRepositoryPort subscriptionRepository;
+    @Mock
+    private CarpoolRepositoryPort carpoolRepository;
+    @Mock
+    private CarpoolPassengerRepositoryPort carpoolPassengerRepository;
 
     private ActivityUseCase activityUseCase;
 
@@ -76,7 +83,14 @@ class ActivityUseCaseTest {
                 activityTypeRepository,
                 userRepository,
                 subscriptionRepository,
+                carpoolRepository,
+                carpoolPassengerRepository,
                 FIXED_CLOCK);
+    }
+
+    /** Localisation hors site valide (room null, adresse renseignée). */
+    private static LocationDto offSite(String street, String postalCode, String city) {
+        return new LocationDto(null, street, null, postalCode, city);
     }
 
     @Test
@@ -90,11 +104,13 @@ class ActivityUseCaseTest {
                 LocalTime.of(9, 0),
                 LocalTime.of(10, 0),
                 8,
-                new LocationDto("10 rue A", null, "75001", "Paris"));
+                offSite("10 rue A", "75001", "Paris"),
+                LocationType.OFF_SITE,
+                null);
 
         when(userRepository.findById(organizerId)).thenReturn(Optional.of(mock(User.class)));
         ActivityType type = ActivityType.builder().id(2L).name("Réunion").build();
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
         when(activityRepository.existsOverlappingForOrganizer(eq(organizerId), any(), any(), any()))
                 .thenReturn(false);
 
@@ -104,6 +120,7 @@ class ActivityUseCaseTest {
                 .description(dto.description())
                 .capacity(dto.capacity())
                 .location(Location.builder()
+                        .locationType(LocationType.OFF_SITE)
                         .street("10 rue A")
                         .complement(null)
                         .postalCode("75001")
@@ -115,6 +132,7 @@ class ActivityUseCaseTest {
                 .startTime(dto.startTime())
                 .endTime(dto.endTime())
                 .deleted(false)
+                .locationType(LocationType.OFF_SITE)
                 .build();
         when(activityRepository.save(any(Activity.class))).thenReturn(saved);
 
@@ -139,7 +157,7 @@ class ActivityUseCaseTest {
     @Test
     void should_throw_when_activity_type_not_found() {
         when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
-        when(activityTypeRepository.findById(99L)).thenReturn(Optional.empty());
+        when(activityTypeRepository.findActiveById(99L)).thenReturn(Optional.empty());
 
         CreateActivityRequestDto dto = new CreateActivityRequestDto(
                 "T",
@@ -149,7 +167,9 @@ class ActivityUseCaseTest {
                 LocalTime.of(10, 0),
                 LocalTime.of(11, 0),
                 5,
-                new LocationDto("r", null, "c", "city"));
+                offSite("r", "c", "city"),
+                LocationType.OFF_SITE,
+                null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -159,7 +179,7 @@ class ActivityUseCaseTest {
     @Test
     void should_throw_when_date_in_past() {
         when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(
                 ActivityType.builder().id(2L).name("X").build()));
 
         CreateActivityRequestDto dto = new CreateActivityRequestDto(
@@ -170,7 +190,9 @@ class ActivityUseCaseTest {
                 LocalTime.of(10, 0),
                 LocalTime.of(11, 0),
                 5,
-                new LocationDto("r", null, "c", "city"));
+                offSite("r", "c", "city"),
+                LocationType.OFF_SITE,
+                null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
@@ -180,7 +202,7 @@ class ActivityUseCaseTest {
     @Test
     void should_throw_when_end_time_not_after_start() {
         when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(
                 ActivityType.builder().id(2L).name("X").build()));
 
         CreateActivityRequestDto dto = new CreateActivityRequestDto(
@@ -191,7 +213,9 @@ class ActivityUseCaseTest {
                 LocalTime.of(10, 0),
                 LocalTime.of(10, 0),
                 5,
-                new LocationDto("r", null, "c", "city"));
+                offSite("r", "c", "city"),
+                LocationType.OFF_SITE,
+                null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
@@ -201,7 +225,7 @@ class ActivityUseCaseTest {
     @Test
     void should_throw_when_time_overlap() {
         when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(
                 ActivityType.builder().id(2L).name("X").build()));
         when(activityRepository.existsOverlappingForOrganizer(eq(ORGANIZER_ID), any(), any(), any()))
                 .thenReturn(true);
@@ -219,7 +243,9 @@ class ActivityUseCaseTest {
                 LocalTime.of(10, 0),
                 LocalTime.of(11, 0),
                 5,
-                new LocationDto("r", null, "c", "city"));
+                offSite("r", "c", "city"),
+                LocationType.OFF_SITE,
+                null);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -231,21 +257,21 @@ class ActivityUseCaseTest {
     private Activity futureActivity() {
         return Activity.builder()
                 .id(ACTIVITY_ID).title("Titre").description(null).capacity(10)
-                .location(Location.builder().street("r").postalCode("p").city("c").complement(null).build())
+                .location(Location.builder().locationType(LocationType.OFF_SITE).street("r").postalCode("p").city("c").complement(null).build())
                 .typeId(2L).organizerId(ORGANIZER_ID)
                 .date(LocalDate.of(2026, 3, 30))   // futur par rapport à l'horloge
                 .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(12, 0))
-                .deleted(false).build();
+                .deleted(false).locationType(LocationType.OFF_SITE).build();
     }
 
     private Activity pastActivity() {
         return Activity.builder()
                 .id(ACTIVITY_ID).title("Titre").description(null).capacity(10)
-                .location(Location.builder().street("r").postalCode("p").city("c").complement(null).build())
+                .location(Location.builder().locationType(LocationType.OFF_SITE).street("r").postalCode("p").city("c").complement(null).build())
                 .typeId(2L).organizerId(ORGANIZER_ID)
                 .date(LocalDate.of(2026, 3, 20))   // passé par rapport à l'horloge
                 .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(12, 0))
-                .deleted(false).build();
+                .deleted(false).locationType(LocationType.OFF_SITE).build();
     }
 
     private UpdateActivityRequestDto validUpdateDto() {
@@ -254,17 +280,18 @@ class ActivityUseCaseTest {
                 LocalDate.of(2026, 4, 10),
                 LocalTime.of(14, 0), LocalTime.of(16, 0),
                 8,
-                new LocationDto("10 rue B", null, "75002", "Paris"));
+                offSite("10 rue B", "75002", "Paris"),
+                LocationType.OFF_SITE);
     }
 
     private Activity savedActivity() {
         return Activity.builder()
                 .id(ACTIVITY_ID).title("Nouveau titre").description("Nouvelle description").capacity(8)
-                .location(Location.builder().street("10 rue B").postalCode("75002").city("Paris").complement(null).build())
+                .location(Location.builder().locationType(LocationType.OFF_SITE).street("10 rue B").postalCode("75002").city("Paris").complement(null).build())
                 .typeId(2L).organizerId(ORGANIZER_ID)
                 .date(LocalDate.of(2026, 4, 10))
                 .startTime(LocalTime.of(14, 0)).endTime(LocalTime.of(16, 0))
-                .deleted(false).build();
+                .deleted(false).locationType(LocationType.OFF_SITE).build();
     }
 
     @Test
@@ -288,7 +315,7 @@ class ActivityUseCaseTest {
     void should_allow_update_when_caller_is_admin_even_if_not_organizer() {
         ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(1);
         when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
         when(activityRepository.update(any())).thenReturn(savedActivity());
@@ -310,7 +337,7 @@ class ActivityUseCaseTest {
     @Test
     void should_throw_not_found_when_activity_type_does_not_exist_for_update() {
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.empty());
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, validUpdateDto()))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -325,10 +352,11 @@ class ActivityUseCaseTest {
                 LocalDate.of(2026, 4, 10),
                 LocalTime.of(14, 0), LocalTime.of(16, 0),
                 2,
-                new LocationDto("r", null, "p", "c"));
+                offSite("r", "p", "c"),
+                LocationType.OFF_SITE);
 
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(5);
 
         assertThatThrownBy(() -> activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, dtoWithLowCapacity))
@@ -340,7 +368,7 @@ class ActivityUseCaseTest {
     void should_throw_conflict_when_organizer_has_overlapping_activity_as_organizer() {
         ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(1);
         when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
         when(activityRepository.existsOverlappingForUsersAsOrganizer(anyList(), any(), any(), any(), anyLong()))
@@ -355,7 +383,7 @@ class ActivityUseCaseTest {
     void should_throw_conflict_when_organizer_is_subscribed_to_overlapping_activity() {
         ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(1);
         when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
         when(subscriptionRepository.existsConflictingActivityForSubscribedUsers(anyList(), any(), any(), any(), anyLong()))
@@ -370,7 +398,7 @@ class ActivityUseCaseTest {
     void should_throw_conflict_when_participant_has_overlapping_activity_as_organizer() {
         ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(2);
         when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID))
                 .thenReturn(List.of(ORGANIZER_ID, PARTICIPANT_ID));
@@ -387,7 +415,7 @@ class ActivityUseCaseTest {
     void should_throw_conflict_when_participant_is_subscribed_to_overlapping_activity() {
         ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(2);
         when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID))
                 .thenReturn(List.of(ORGANIZER_ID, PARTICIPANT_ID));
@@ -405,7 +433,7 @@ class ActivityUseCaseTest {
         ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
         Activity saved = savedActivity();
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(1);
         when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
         when(activityRepository.update(any(Activity.class))).thenReturn(saved);
@@ -428,11 +456,12 @@ class ActivityUseCaseTest {
     private Activity deletedFutureActivity() {
         return Activity.builder()
                 .id(ACTIVITY_ID).title("Titre").description(null).capacity(10)
-                .location(Location.builder().street("r").postalCode("p").city("c").complement(null).build())
+                .location(Location.builder().locationType(LocationType.OFF_SITE).street("r").postalCode("p").city("c").complement(null).build())
                 .typeId(2L).organizerId(ORGANIZER_ID)
                 .date(LocalDate.of(2026, 3, 30))
                 .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(12, 0))
                 .deleted(true)
+                .locationType(LocationType.OFF_SITE)
                 .build();
     }
 
@@ -506,7 +535,7 @@ class ActivityUseCaseTest {
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
         when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, participantId)).thenReturn(true);
         doNothing().when(subscriptionRepository).unsubscribeParticipant(ACTIVITY_ID, participantId);
-        when(activityTypeRepository.findById(2L)).thenReturn(Optional.of(type));
+        when(activityTypeRepository.findByIdIncludingDeleted(2L)).thenReturn(Optional.of(type));
         when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
         when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(3);
 
