@@ -15,6 +15,8 @@ public class UserMapper {
                 .bio(entity.getBio())
                 .phone(entity.getPhone())
                 .address(entity.getAddress())
+                .resetToken(entity.getResetToken())
+                .resetTokenExpiry(entity.getResetTokenExpiry())
                 .createdAt(entity.getCreatedAt())
                 .build();
     }
@@ -34,6 +36,8 @@ public class UserMapper {
         entity.setBio(user.getBio());
         entity.setPhone(user.getPhone());
         entity.setAddress(user.getAddress());
+        entity.setResetToken(user.getResetToken());
+        entity.setResetTokenExpiry(user.getResetTokenExpiry());
         return entity;
     }
 

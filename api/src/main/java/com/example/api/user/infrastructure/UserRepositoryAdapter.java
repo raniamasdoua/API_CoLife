@@ -6,7 +6,9 @@ import com.example.api.user.domain.UserMapper;
 import com.example.api.user.domain.UserRepositoryPort;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 public class UserRepositoryAdapter implements UserRepositoryPort {
@@ -35,6 +37,43 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         UserEntity entity = UserMapper.toNewEntity(user);
         UserEntity savedEntity = jpaRepository.save(entity);
         return UserMapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public List<User> findAll() {
+        return jpaRepository.findAll().stream()
+                .map(UserMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countAll() {
+        return jpaRepository.count();
+    }
+
+    @Override
+    public void updatePassword(Long id, String encodedPassword) {
+        UserEntity entity = jpaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+        entity.setPassword(encodedPassword);
+        entity.setResetToken(null);
+        entity.setResetTokenExpiry(null);
+        jpaRepository.save(entity);
+    }
+
+    @Override
+    public Optional<User> findByResetToken(String resetToken) {
+        return jpaRepository.findByResetToken(resetToken)
+                .map(UserMapper::toDomain);
+    }
+
+    @Override
+    public void updateResetToken(Long id, String resetToken, java.time.LocalDateTime resetTokenExpiry) {
+        UserEntity entity = jpaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+        entity.setResetToken(resetToken);
+        entity.setResetTokenExpiry(resetTokenExpiry);
+        jpaRepository.save(entity);
     }
 
     /**

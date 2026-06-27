@@ -8,6 +8,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users",
@@ -42,6 +43,11 @@ public class UserEntity {
     private String phone;
     @Column(length = 255)
     private String address;
+
+    private String resetToken;
+
+    private LocalDateTime resetTokenExpiry;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDate createdAt;

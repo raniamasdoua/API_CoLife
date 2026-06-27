@@ -3,6 +3,7 @@ package com.example.api.activity.presentation;
 import com.example.api.activity.application.ActivityUseCase;
 import com.example.api.activity.application.dto.ActivityResponseDto;
 import com.example.api.activity.application.dto.CreateActivityRequestDto;
+import com.example.api.activity.application.dto.ParticipantDto;
 import com.example.api.activity.application.dto.UpdateActivityRequestDto;
 import com.example.api.shared.openapi.OpenApiConfig;
 import com.example.api.shared.security.JwtPrincipal;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -37,6 +40,37 @@ public class ActivityController {
 
     public ActivityController(ActivityUseCase activityUseCase) {
         this.activityUseCase = activityUseCase;
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Lister toutes les activités (admin)",
+            description = "Retourne toutes les activités non supprimées. Réservé aux administrateurs."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste retournée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "403", description = "Droits admin requis")
+    })
+    public ResponseEntity<List<ActivityResponseDto>> getAllActivities(
+            @RequestParam(name = "includeDeleted", defaultValue = "false") boolean includeDeleted) {
+        return ResponseEntity.ok(activityUseCase.getAllActivities(includeDeleted));
+    }
+
+    @GetMapping("/{activityId}/participants")
+    @Operation(
+            summary = "Lister les participants d'une activité",
+            description = "Retourne la liste des membres inscrits à une activité. Accessible à tout utilisateur authentifié."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste retournée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "404", description = "Activité non trouvée")
+    })
+    public ResponseEntity<List<ParticipantDto>> getParticipants(
+            @PathVariable Long activityId) {
+        return ResponseEntity.ok(activityUseCase.getParticipants(activityId));
     }
 
     @PostMapping

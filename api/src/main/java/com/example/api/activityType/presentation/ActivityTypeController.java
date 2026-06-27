@@ -102,13 +102,15 @@ public class ActivityTypeController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Supprimer un type d'activité (admin)", description = "Supprime un type d'activité.")
+    @Operation(
+            summary = "Supprimer un type d'activité (admin)",
+            description = "Marque le type comme supprimé (soft delete). Il disparaît des listes et des sélecteurs ; les activités existantes conservent le libellé."
+    )
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Type d'activité supprimé"),
+            @ApiResponse(responseCode = "204", description = "Type désactivé (soft delete), ou déjà désactivé"),
             @ApiResponse(responseCode = "401", description = "Authentification requise"),
             @ApiResponse(responseCode = "403", description = "Réservé aux admins"),
-            @ApiResponse(responseCode = "404", description = "Type d'activité non trouvé"),
-            @ApiResponse(responseCode = "409", description = "Type encore utilisé par des activités non supprimées")
+            @ApiResponse(responseCode = "404", description = "Type d'activité non trouvé")
     })
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         activityTypeUseCase.delete(id);

@@ -1,5 +1,7 @@
 package com.example.api.activity.application.dto;
 
+import com.example.api.activity.domain.LocationType;
+import com.example.api.carpool.application.dto.CarpoolRequestDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
@@ -17,6 +19,8 @@ public record CreateActivityRequestDto(
         @NotNull(message = "est obligatoire") LocalTime startTime,
         @NotNull(message = "est obligatoire") LocalTime endTime,
         @Positive(message = "doit être strictement positive") int capacity,
-        @NotNull(message = "est obligatoire") @Valid LocationDto location
+        @NotNull(message = "est obligatoire") @Valid LocationDto location,
+        LocationType locationType,
+        @Valid CarpoolRequestDto carpool
 ) {
 }

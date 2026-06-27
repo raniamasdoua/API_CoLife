@@ -20,4 +20,5 @@ public class Activity {
     private LocalTime startTime;
     private LocalTime endTime;
     private boolean deleted;
+    private LocationType locationType;
 }
