@@ -17,4 +17,8 @@ public class ActivityTypeEntity {
     private Long id;
 
     private String name;
+
+    /** Soft delete : type masqué des listes / création d'activités, mais conservé pour l'historique (FK). */
+    @Column(name = "is_deleted", nullable = false)
+    private boolean deleted = false;
 }

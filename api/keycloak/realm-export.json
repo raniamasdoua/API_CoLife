@@ -1,0 +1,76 @@
+{
+  "realm": "colife",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "verifyEmail": true,
+  "sslRequired": "external",
+  "accessTokenLifespan": 900,
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "no-reply@entreprise.com",
+    "fromDisplayName": "CoLife",
+    "ssl": "false",
+    "starttls": "false",
+    "auth": "false"
+  },
+  "roles": {
+    "realm": [
+      { "name": "ADMIN", "description": "Administrateur CoLife" },
+      { "name": "COLLABORATOR", "description": "Collaborateur CoLife" }
+    ]
+  },
+  "defaultRoles": ["COLLABORATOR"],
+  "clients": [
+    {
+      "clientId": "colife-spa",
+      "name": "CoLife SPA (frontend React)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:5173",
+      "baseUrl": "http://localhost:5173",
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@entreprise.com",
+      "email": "admin@entreprise.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "CoLife",
+      "credentials": [
+        { "type": "password", "value": "Admin123!", "temporary": false }
+      ],
+      "realmRoles": ["ADMIN", "COLLABORATOR"]
+    }
+  ],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"pattern\":{\"pattern\":\"^[^@]+@entreprise\\\\.com$\",\"error-message\":\"L'adresse email doit appartenir au domaine @entreprise.com\"}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}}]}"
+          ]
+        }
+      }
+    ]
+  }
+}
