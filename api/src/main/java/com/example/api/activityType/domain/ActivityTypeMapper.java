@@ -11,6 +11,7 @@ public final class ActivityTypeMapper {
         return ActivityType.builder()
                 .id(entity.getId())
                 .name(entity.getName())
+                .deleted(entity.isDeleted())
                 .build();
     }
 }

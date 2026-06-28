@@ -6,9 +6,19 @@ import java.util.Optional;
 public interface ActivityTypeRepositoryPort {
     ActivityType save(ActivityType activityType);
 
-    Optional<ActivityType> findById(Long id);
+    /** Type actif uniquement (non supprimé logiquement). */
+    Optional<ActivityType> findActiveById(Long id);
 
-    List<ActivityType> findAll();
+    /** Par id en base, y compris type soft-supprimé (résolution pour activités existantes). */
+    Optional<ActivityType> findByIdIncludingDeleted(Long id);
 
-    boolean existsByName(String name);
+    /** Types actifs, pour listes et sélecteurs. */
+    List<ActivityType> findAllActive();
+
+    /** Unicité de nom parmi les types actifs uniquement. */
+    boolean existsActiveByNameIgnoreCase(String name);
+
+    void softDeleteById(Long id);
+
+    long countActive();
 }

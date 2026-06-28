@@ -8,18 +8,19 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface SubscriptionJpaRepository extends JpaRepository<SubscriptionEntity, Long> {
     /** Inscription active : pas de date de désinscription */
-    boolean existsByActivityIdAndUserIdAndUnsubscribedAtIsNull(Long activityId, Long userId);
+    boolean existsByActivityIdAndUserIdAndUnsubscribedAtIsNull(Long activityId, UUID userId);
 
-    Optional<SubscriptionEntity> findByActivityIdAndUserId(Long activityId, Long userId);
+    Optional<SubscriptionEntity> findByActivityIdAndUserId(Long activityId, UUID userId);
 
     @Query("select count(s) from SubscriptionEntity s where s.activityId = :activityId and s.unsubscribedAt is null")
     int countActiveByActivityId(@Param("activityId") Long activityId);
 
     @Query("select s.userId from SubscriptionEntity s where s.activityId = :activityId and s.unsubscribedAt is null")
-    List<Long> findUserIdsByActivityId(@Param("activityId") Long activityId);
+    List<UUID> findUserIdsByActivityId(@Param("activityId") Long activityId);
 
     /**
      * Vérifie via une requête native si l'un des utilisateurs est inscrit à une autre activité
@@ -38,7 +39,7 @@ public interface SubscriptionJpaRepository extends JpaRepository<SubscriptionEnt
               AND a.end_time > :startTime
             """, nativeQuery = true)
     int countConflictingActivityForSubscribedUsers(
-            @Param("userIds") List<Long> userIds,
+            @Param("userIds") List<UUID> userIds,
             @Param("date") LocalDate date,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime,

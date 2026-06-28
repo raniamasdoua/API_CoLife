@@ -2,6 +2,16 @@ package com.example.api.activityType.infrastructure;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+import java.util.Optional;
+
 public interface ActivityTypeJpaRepository extends JpaRepository<ActivityTypeEntity, Long> {
-    boolean existsByName(String name);
+
+    List<ActivityTypeEntity> findAllByDeletedFalseOrderByNameAsc();
+
+    Optional<ActivityTypeEntity> findByIdAndDeletedFalse(Long id);
+
+    boolean existsByNameIgnoreCaseAndDeletedFalse(String name);
+
+    long countByDeletedFalse();
 }

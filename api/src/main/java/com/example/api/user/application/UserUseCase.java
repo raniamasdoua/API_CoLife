@@ -7,7 +7,10 @@ import com.example.api.user.domain.User;
 import com.example.api.user.domain.UserRepositoryPort;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class UserUseCase {
@@ -22,8 +25,21 @@ public class UserUseCase {
         return userRepository.findByEmail(email);
     }
 
+    /** Retourne la liste de tous les utilisateurs (admin uniquement). */
+    public List<UserResponseDto> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(UserUseCase::toDto)
+                .sorted((a, b) -> b.createdAt().compareTo(a.createdAt()))
+                .collect(Collectors.toList());
+    }
+
+    /** Retourne le nombre total d'utilisateurs enregistrés. */
+    public long countUsers() {
+        return userRepository.countAll();
+    }
+
     /** Retourne le profil complet d'un utilisateur. */
-    public UserResponseDto getUserById(Long userId) {
+    public UserResponseDto getUserById(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
         return toDto(user);
@@ -33,7 +49,7 @@ public class UserUseCase {
      * Met à jour les champs modifiables (bio, phone, address) du profil.
      * Les valeurs null dans la requête sont ignorées (patch partiel).
      */
-    public UserResponseDto updateProfile(Long userId, UpdateProfileRequestDto request) {
+    public UserResponseDto updateProfile(UUID userId, UpdateProfileRequestDto request) {
         User existing = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 

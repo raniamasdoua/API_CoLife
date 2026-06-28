@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
@@ -59,28 +60,28 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
     }
 
     @Override
-    public List<Activity> findByOrganizerId(Long organizerId) {
+    public List<Activity> findByOrganizerId(UUID organizerId) {
         return activityJpaRepository.findByOrganizerIdAndNotDeleted(organizerId).stream()
                 .map(ActivityMapper::toDomain)
                 .toList();
     }
 
     @Override
-    public List<Activity> findByOrganizerIdNot(Long organizerId) {
+    public List<Activity> findByOrganizerIdNot(UUID organizerId) {
         return activityJpaRepository.findByOrganizerIdNotAndNotDeleted(organizerId).stream()
                 .map(ActivityMapper::toDomain)
                 .toList();
     }
 
     @Override
-    public List<Activity> findAvailableForUser(Long userId, LocalDate today, LocalTime now) {
+    public List<Activity> findAvailableForUser(UUID userId, LocalDate today, LocalTime now) {
         return activityJpaRepository.findAvailableForUser(userId, today, now).stream()
                 .map(ActivityMapper::toDomain)
                 .toList();
     }
 
     @Override
-    public List<Activity> findSubscribedAsNonOrganizer(Long userId) {
+    public List<Activity> findSubscribedAsNonOrganizer(UUID userId) {
         return activityJpaRepository.findSubscribedAsNonOrganizer(userId).stream()
                 .map(ActivityMapper::toDomain)
                 .toList();
@@ -103,12 +104,12 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
     }
 
     @Override
-    public boolean existsOverlappingForOrganizer(Long organizerId, LocalDate date, LocalTime start, LocalTime end) {
+    public boolean existsOverlappingForOrganizer(UUID organizerId, LocalDate date, LocalTime start, LocalTime end) {
         return activityJpaRepository.existsOverlappingForOrganizer(organizerId, date, start, end);
     }
 
     @Override
-    public boolean existsOverlappingForUsersAsOrganizer(List<Long> userIds, LocalDate date, LocalTime start, LocalTime end, Long excludeActivityId) {
+    public boolean existsOverlappingForUsersAsOrganizer(List<UUID> userIds, LocalDate date, LocalTime start, LocalTime end, Long excludeActivityId) {
         if (userIds == null || userIds.isEmpty()) {
             return false;
         }
@@ -121,6 +122,11 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
                 .orElseThrow(() -> new ResourceNotFoundException("Activité non trouvée"));
         entity.setDeleted(true);
         activityJpaRepository.save(entity);
+    }
+
+    @Override
+    public boolean existsNonDeletedByActivityTypeId(Long activityTypeId) {
+        return activityJpaRepository.existsNonDeletedByActivityTypeId(activityTypeId);
     }
 
 }

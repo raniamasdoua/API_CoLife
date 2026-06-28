@@ -16,6 +16,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/user")
 @Tag(name = "Utilisateurs", description = "Consultation et mise à jour du profil utilisateur.")
@@ -26,6 +30,36 @@ public class UserController {
 
     public UserController(UserUseCase userUseCase) {
         this.userUseCase = userUseCase;
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Liste tous les utilisateurs (admin)",
+            description = "Retourne la liste complète des utilisateurs triée par date d'inscription décroissante. Réservé aux administrateurs."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste retournée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "403", description = "Droits admin requis")
+    })
+    public ResponseEntity<List<UserResponseDto>> getAllUsers() {
+        return ResponseEntity.ok(userUseCase.getAllUsers());
+    }
+
+    @GetMapping("/count")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Nombre total d'utilisateurs (admin)",
+            description = "Retourne le nombre total d'utilisateurs enregistrés. Réservé aux administrateurs."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Comptage retourné"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "403", description = "Droits admin requis")
+    })
+    public ResponseEntity<Map<String, Long>> countUsers() {
+        return ResponseEntity.ok(Map.of("count", userUseCase.countUsers()));
     }
 
     /**
@@ -42,7 +76,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = "Accès refusé (si non autorisé)"),
             @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
     })
-    public ResponseEntity<UserResponseDto> getUserById(@PathVariable Long id) {
+    public ResponseEntity<UserResponseDto> getUserById(@PathVariable UUID id) {
         return ResponseEntity.ok(userUseCase.getUserById(id));
     }
 
@@ -63,7 +97,7 @@ public class UserController {
             @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
     })
     public ResponseEntity<UserResponseDto> updateProfile(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody UpdateProfileRequestDto request,
             @AuthenticationPrincipal JwtPrincipal principal) {
         return ResponseEntity.ok(userUseCase.updateProfile(id, request));
