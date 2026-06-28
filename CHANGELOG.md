@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.3.0 - 2026-06-28
+
+### 🚀 Features
+- feat(auth) : migration de l'authentification vers Keycloak (OIDC, identité UUID)
+- feat(Authentification) : mot de passe oublié
+- feat(covoiturage) : modifier / annuler un covoiturage
+- feat(covoiturage) : proposer / rejoindre un covoiturage après avoir rejoint une activité
+- feat(profil) : changement de mot de passe utilisateur
+- feat(admin) : statistiques
+- feat(activité) : gestion admin des activités
+- feat(type_activités): suppression type déjà utilisé
+- feat(type_activités): implémentation CRUD types des activités
+- feat(activité): désinscription d'une activité (#37)
+- feat(activité): correction récupération des activités disponibles  (#36)
+- feat(activite): inscription à une activité (#35)
+
+### 🐛 Fixes
+- fix(ci) : exécuter les git log dans le script de changelog et supprimer les workflows en double
+- fix(ci): correction de l'historique du changelog
+
+### 🔧 Others
+- test(covoiturage) : réalignement des tests activité sur la nouvelle API et tests covoit
+
+---
+
 ## v0.2.1 - 2026-04-18
 
 ### 🐛 Fixes
