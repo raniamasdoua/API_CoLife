@@ -20,23 +20,23 @@ jobs:
           java-version: '21'
 
       - name: Make scripts executable
-        run: chmod +x api/scripts/*.sh
+        run: chmod +x scripts/*.sh
 
       - name: Compute snapshot version
         run: |
-          BASE_VERSION=$(./api/scripts/next-version.sh)
+          BASE_VERSION=$(./scripts/next-version.sh)
           SNAPSHOT_VERSION="${BASE_VERSION#v}-SNAPSHOT.${GITHUB_RUN_NUMBER}"
           echo "SNAPSHOT_VERSION=$SNAPSHOT_VERSION" >> $GITHUB_ENV
           echo "Version: $SNAPSHOT_VERSION"
 
       - name: Set Maven version
-        run: mvn -B -f api/pom.xml versions:set -DnewVersion=${SNAPSHOT_VERSION} -DgenerateBackupPoms=false
+        run: mvn -B -f pom.xml versions:set -DnewVersion=${SNAPSHOT_VERSION} -DgenerateBackupPoms=false
       
       - name: Build project
-        run: mvn -B -f api/pom.xml clean verify
+        run: mvn -B -f pom.xml clean verify
         
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: api-colife-${{ env.SNAPSHOT_VERSION }}
-          path: api/target/*.jar
+          path: target/*.jar
