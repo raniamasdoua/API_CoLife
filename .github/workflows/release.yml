@@ -41,7 +41,7 @@ jobs:
         run: mvn -B -f api/pom.xml versions:set -DnewVersion=${VERSION#v} -DgenerateBackupPoms=false
       
       - name: Build project
-        run: mvn -B -f api/pom.xml clean package
+        run: mvn -B -f api/pom.xml clean verify
 
       - name: Commit changelog + version
         run: |
