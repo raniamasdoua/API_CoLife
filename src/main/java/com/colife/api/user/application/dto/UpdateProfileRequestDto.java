@@ -1,5 +1,6 @@
 package com.colife.api.user.application.dto;
 
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -12,6 +13,10 @@ public record UpdateProfileRequestDto(
         @Size(max = 500, message = "La bio ne peut pas dépasser 500 caractères")
         String bio,
 
+        @Pattern(
+            regexp = "^[+0-9][0-9 .\\-()]{5,19}$",
+            message = "Le numéro de téléphone est invalide"
+        )
         @Size(max = 30, message = "Le numéro de téléphone ne peut pas dépasser 30 caractères")
         String phone,
 
