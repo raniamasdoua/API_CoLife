@@ -83,6 +83,11 @@ public class ActivityUseCase {
             throw new ConflictException("Vous avez déjà une activité sur ce créneau horaire");
         }
 
+        if (subscriptionRepository.existsConflictingActivityForSubscribedUsers(
+                List.of(organizerId), dto.date(), dto.startTime(), dto.endTime(), -1L)) {
+            throw new ConflictException("Vous êtes déjà inscrit à une activité sur ce créneau horaire");
+        }
+
         LocationType locationType = dto.locationType() != null ? dto.locationType() : LocationType.OFF_SITE;
         validateLocation(locationType, dto.location());
 
