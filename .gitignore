@@ -23,9 +23,6 @@
 hs_err_pid*
 replay_pid*
 
-# Claude Code — contexte projet local, ne pas pousser
-CLAUDE.md
-
 # Maven
 target/
 HELP.md
