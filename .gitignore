@@ -23,5 +23,24 @@
 hs_err_pid*
 replay_pid*
 
-# Claude Code — contexte projet local, ne pas pousser
-CLAUDE.md
+# Maven
+target/
+HELP.md
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDE
+.idea
+*.iws
+*.iml
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+.springBeans
+
+# Env
+.env
+.scannerwork/
