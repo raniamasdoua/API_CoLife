@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.4.0 - 2026-07-23
+
+### 🚀 Features
+- feat(data) : préconfigurer le compte admin, le type Autre et la validation téléphone
+- feat(infra) : dockeriser l'API, externaliser la configuration et aligner le fuseau horaire
+- feat(config) : externaliser les origines CORS via variable d'environnement
+
+### 🐛 Fixes
+- fix : bloquer la création d'activité en conflit avec une inscription existante
+- fix(tests) : définir cors.allowed-origins pour les tests d'intégration
+- fix(tests) : différer l'initialisation SQL après la création du schéma
+
+### 🔧 Others
+- test(coverage) : TU + TI, Jacoco et Sonar
+
+---
+
 ## v0.3.0 - 2026-06-28
 
 ### 🚀 Features
