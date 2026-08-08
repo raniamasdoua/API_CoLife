@@ -25,6 +25,7 @@ import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ConflictException;
 import com.colife.api.shared.exception.ForbiddenException;
 import com.colife.api.shared.exception.ResourceNotFoundException;
+import com.colife.api.shared.notification.NotificationPort;
 import com.colife.api.subscription.domain.SubscriptionRepositoryPort;
 import com.colife.api.user.domain.User;
 import com.colife.api.user.domain.UserRepositoryPort;
@@ -51,6 +52,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -78,6 +80,8 @@ class ActivityUseCaseTest {
     private CarpoolRepositoryPort carpoolRepository;
     @Mock
     private CarpoolPassengerRepositoryPort carpoolPassengerRepository;
+    @Mock
+    private NotificationPort notificationPort;
 
     private ActivityUseCase activityUseCase;
 
@@ -90,6 +94,7 @@ class ActivityUseCaseTest {
                 subscriptionRepository,
                 carpoolRepository,
                 carpoolPassengerRepository,
+                notificationPort,
                 FIXED_CLOCK);
     }
 
@@ -1007,6 +1012,112 @@ class ActivityUseCaseTest {
         activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, onSiteDto);
 
         verify(carpoolPassengerRepository).removeAllByCarpoolIds(List.of(5L));
-        verify(carpoolRepository).cancelAllByActivityId(ACTIVITY_ID);
+        verify(carpoolRepository).cancelByIds(List.of(5L));
+    }
+
+    // ─── Tests : update() – covoiturage invalidé par un changement d'horaire ──
+
+    @Test
+    void should_cancel_carpool_and_notify_driver_when_new_start_time_invalidates_departure() {
+        ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
+        Activity existing = Activity.builder()
+                .id(ACTIVITY_ID).title("Sortie").description(null).capacity(10)
+                .location(Location.builder().locationType(LocationType.OFF_SITE).street("r").postalCode("p").city("c").complement(null).build())
+                .typeId(2L).organizerId(ORGANIZER_ID)
+                .date(LocalDate.of(2026, Month.MARCH, 30))
+                .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(11, 0))
+                .deleted(false).locationType(LocationType.OFF_SITE).build();
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(existing));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(1);
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
+        when(activityRepository.update(any(Activity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
+
+        // Départ à 9h, initialement valide (< 10h). Reproduit le cas testé manuellement :
+        // organisateur avance le début de l'activité à 8h → le départ à 9h devient incohérent.
+        Carpool carpool = Carpool.builder().id(7L).activityId(ACTIVITY_ID).driverId(PARTICIPANT_ID)
+                .departureTime(LocalTime.of(9, 0)).maxPassengers(3).build();
+        when(carpoolRepository.findAllActiveByActivityId(ACTIVITY_ID)).thenReturn(List.of(carpool));
+        when(carpoolPassengerRepository.findAllActivePassengersByCarpoolId(7L)).thenReturn(List.of());
+
+        User driver = mock(User.class);
+        when(driver.getFirstName()).thenReturn("Sam");
+        when(driver.getEmail()).thenReturn("sam@test.fr");
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(driver));
+
+        UpdateActivityRequestDto dto = new UpdateActivityRequestDto(
+                "Sortie", null, 2L,
+                LocalDate.of(2026, Month.MARCH, 30),
+                LocalTime.of(8, 0), LocalTime.of(11, 0),
+                10,
+                offSite("r", "p", "c"),
+                LocationType.OFF_SITE);
+
+        activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, dto);
+
+        verify(carpoolPassengerRepository).removeAllByCarpoolIds(List.of(7L));
+        verify(carpoolRepository).cancelByIds(List.of(7L));
+        verify(notificationPort).send(eq("sam@test.fr"), any(String.class), any(String.class));
+    }
+
+    @Test
+    void should_not_cancel_carpool_when_departure_still_valid_after_schedule_change() {
+        ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
+        Activity existing = Activity.builder()
+                .id(ACTIVITY_ID).title("Sortie").description(null).capacity(10)
+                .location(Location.builder().locationType(LocationType.OFF_SITE).street("r").postalCode("p").city("c").complement(null).build())
+                .typeId(2L).organizerId(ORGANIZER_ID)
+                .date(LocalDate.of(2026, Month.MARCH, 30))
+                .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(11, 0))
+                .deleted(false).locationType(LocationType.OFF_SITE).build();
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(existing));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(1);
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
+        when(activityRepository.update(any(Activity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
+
+        // Départ à 9h : le nouvel horaire (10h30) reste compatible, aucune annulation attendue.
+        Carpool carpool = Carpool.builder().id(7L).activityId(ACTIVITY_ID).driverId(PARTICIPANT_ID)
+                .departureTime(LocalTime.of(9, 0)).maxPassengers(3).build();
+        when(carpoolRepository.findAllActiveByActivityId(ACTIVITY_ID)).thenReturn(List.of(carpool));
+
+        UpdateActivityRequestDto dto = new UpdateActivityRequestDto(
+                "Sortie", null, 2L,
+                LocalDate.of(2026, Month.MARCH, 30),
+                LocalTime.of(10, 30), LocalTime.of(11, 30),
+                10,
+                offSite("r", "p", "c"),
+                LocationType.OFF_SITE);
+
+        activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, dto);
+
+        verify(carpoolPassengerRepository, never()).removeAllByCarpoolIds(anyList());
+        verify(carpoolRepository, never()).cancelByIds(anyList());
+    }
+
+    @Test
+    void should_notify_participant_but_not_organizer_when_schedule_changes() {
+        ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
+        Activity existing = futureActivity();
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(existing));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(2);
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID))
+                .thenReturn(List.of(ORGANIZER_ID, PARTICIPANT_ID));
+        when(activityRepository.update(any(Activity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
+
+        User participant = mock(User.class);
+        when(participant.getFirstName()).thenReturn("Ana");
+        when(participant.getEmail()).thenReturn("ana@test.fr");
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant));
+
+        activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, validUpdateDto());
+
+        // Un seul email envoyé, et uniquement au participant (l'organisateur est à l'origine du changement).
+        verify(notificationPort, times(1)).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationPort).send(eq("ana@test.fr"), any(String.class), any(String.class));
     }
 }

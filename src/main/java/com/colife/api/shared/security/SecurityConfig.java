@@ -45,6 +45,8 @@ public class SecurityConfig {
                         .requestMatchers("/user/**").authenticated()
                         .requestMatchers("/activity-types").authenticated()
                         .requestMatchers("/activities/**", "/subscriptions/**").authenticated()
+                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 // Resource Server OIDC : les tokens Keycloak sont validés via le JWKS de l'issuer.

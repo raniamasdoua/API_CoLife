@@ -26,4 +26,8 @@ public interface CarpoolJpaRepository extends JpaRepository<CarpoolEntity, Long>
     @Modifying
     @Query("UPDATE CarpoolEntity c SET c.status = 'CANCELLED' WHERE c.activityId = :activityId AND c.status = 'ACTIVE'")
     void cancelAllByActivityId(@Param("activityId") Long activityId);
+
+    @Modifying
+    @Query("UPDATE CarpoolEntity c SET c.status = 'CANCELLED' WHERE c.id IN :ids AND c.status = 'ACTIVE'")
+    void cancelByIds(@Param("ids") List<Long> ids);
 }
