@@ -8,6 +8,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.time.Clock;
+import java.time.ZoneId;
 import java.util.List;
 
 @Configuration
@@ -16,9 +17,12 @@ public class WebConfig {
     @Value("${cors.allowed-origins}")
     private List<String> allowedOrigins;
 
+    @Value("${app.timezone}")
+    private String timezone;
+
     @Bean
     public Clock clock() {
-        return Clock.systemDefaultZone();
+        return Clock.system(ZoneId.of(timezone));
     }
 
     @Bean
