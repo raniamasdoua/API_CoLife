@@ -27,12 +27,15 @@ import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ConflictException;
 import com.colife.api.shared.exception.ForbiddenException;
 import com.colife.api.shared.exception.ResourceNotFoundException;
+import com.colife.api.shared.notification.NotificationPort;
 import com.colife.api.subscription.domain.SubscriptionRepositoryPort;
 import com.colife.api.user.domain.UserRepositoryPort;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,12 +45,16 @@ import java.util.UUID;
 @Service
 public class ActivityUseCase {
 
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+
     private final ActivityRepositoryPort activityRepository;
     private final ActivityTypeRepositoryPort activityTypeRepository;
     private final UserRepositoryPort userRepository;
     private final SubscriptionRepositoryPort subscriptionRepository;
     private final CarpoolRepositoryPort carpoolRepository;
     private final CarpoolPassengerRepositoryPort carpoolPassengerRepository;
+    private final NotificationPort notificationPort;
     private final Clock clock;
 
     public ActivityUseCase(
@@ -57,6 +64,7 @@ public class ActivityUseCase {
             SubscriptionRepositoryPort subscriptionRepository,
             CarpoolRepositoryPort carpoolRepository,
             CarpoolPassengerRepositoryPort carpoolPassengerRepository,
+            NotificationPort notificationPort,
             Clock clock) {
         this.activityRepository = activityRepository;
         this.activityTypeRepository = activityTypeRepository;
@@ -64,6 +72,7 @@ public class ActivityUseCase {
         this.subscriptionRepository = subscriptionRepository;
         this.carpoolRepository = carpoolRepository;
         this.carpoolPassengerRepository = carpoolPassengerRepository;
+        this.notificationPort = notificationPort;
         this.clock = clock;
     }
 
@@ -228,16 +237,38 @@ public class ActivityUseCase {
                 : (activity.getLocationType() != null ? activity.getLocationType() : LocationType.OFF_SITE);
         validateLocation(locationType, dto.location());
 
-        // Si l'activité passe de hors-site à sur-site, annuler tous les covoiturages actifs
+        boolean scheduleChanged = !activity.getDate().isEqual(dto.date())
+                || !activity.getStartTime().equals(dto.startTime())
+                || !activity.getEndTime().equals(dto.endTime());
+
+        // Si l'activité passe de hors-site à sur-site, tous les covoiturages actifs deviennent caducs.
+        // Sinon, si seul l'horaire change, seuls les covoiturages dont le départ n'est plus avant
+        // le nouveau début d'activité deviennent incompatibles (cf. CarpoolCreationPolicy).
         boolean switchingToOnSite = locationType == LocationType.ON_SITE
                 && activity.getLocationType() != LocationType.ON_SITE;
+
+        List<Carpool> carpoolsToCancel = List.of();
         if (switchingToOnSite) {
-            List<Carpool> activeCarpools = carpoolRepository.findAllActiveByActivityId(activityId);
-            if (!activeCarpools.isEmpty()) {
-                List<Long> carpoolIds = activeCarpools.stream().map(Carpool::getId).toList();
-                carpoolPassengerRepository.removeAllByCarpoolIds(carpoolIds);
-                carpoolRepository.cancelAllByActivityId(activityId);
+            carpoolsToCancel = carpoolRepository.findAllActiveByActivityId(activityId);
+        } else if (scheduleChanged) {
+            carpoolsToCancel = carpoolRepository.findAllActiveByActivityId(activityId).stream()
+                    .filter(c -> !c.getDepartureTime().isBefore(dto.startTime()))
+                    .toList();
+        }
+
+        if (!carpoolsToCancel.isEmpty()) {
+            for (Carpool carpool : carpoolsToCancel) {
+                String reason = switchingToOnSite
+                        ? "L'organisateur de l'activité \"" + activity.getTitle() + "\" l'a repositionnée en sur-site, "
+                            + "le covoiturage n'est donc plus disponible pour cette activité."
+                        : "L'organisateur de l'activité \"" + activity.getTitle() + "\" a modifié son horaire : "
+                            + "le nouveau créneau commence à " + dto.startTime().format(TIME_FORMAT) + ", ce qui n'est plus "
+                            + "compatible avec le départ prévu à " + carpool.getDepartureTime().format(TIME_FORMAT) + ".";
+                notifyCarpoolCancelled(activity, carpool, reason);
             }
+            List<Long> carpoolIds = carpoolsToCancel.stream().map(Carpool::getId).toList();
+            carpoolPassengerRepository.removeAllByCarpoolIds(carpoolIds);
+            carpoolRepository.cancelByIds(carpoolIds);
         }
 
         Location location = buildLocation(locationType, dto.location());
@@ -259,6 +290,10 @@ public class ActivityUseCase {
 
         Activity saved = activityRepository.update(updated);
 
+        if (scheduleChanged && !participantOnlyIds.isEmpty()) {
+            notifyScheduleChanged(saved, participantOnlyIds);
+        }
+
         String organizerName = userRepository.findById(activity.getOrganizerId())
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .orElse("Inconnu");
@@ -267,6 +302,43 @@ public class ActivityUseCase {
                 .map(this::toCarpoolResponse)
                 .orElse(null);
         return toResponse(saved, activityType, organizerName, updatedParticipantCount, carpoolResponse);
+    }
+
+    private void notifyScheduleChanged(Activity activity, List<UUID> participantIds) {
+        String newSlot = activity.getDate().format(DATE_FORMAT) + " de " + activity.getStartTime().format(TIME_FORMAT)
+                + " à " + activity.getEndTime().format(TIME_FORMAT);
+        String subject = "Changement d'horaire : " + activity.getTitle();
+
+        for (UUID participantId : participantIds) {
+            userRepository.findById(participantId).ifPresent(user -> {
+                String body = "Bonjour " + user.getFirstName() + ",\n\n"
+                        + "L'horaire de l'activité \"" + activity.getTitle() + "\" a été modifié.\n\n"
+                        + "Nouveau créneau : " + newSlot + "\n\n"
+                        + "Si ce nouveau créneau ne vous convient pas, vous pouvez vous désinscrire depuis l'application.\n\n"
+                        + "L'équipe CoLife";
+                notificationPort.send(user.getEmail(), subject, body);
+            });
+        }
+    }
+
+    private void notifyCarpoolCancelled(Activity activity, Carpool carpool, String reason) {
+        String subject = "Covoiturage annulé : " + activity.getTitle();
+
+        List<UUID> recipientIds = new ArrayList<>();
+        recipientIds.add(carpool.getDriverId());
+        carpoolPassengerRepository.findAllActivePassengersByCarpoolId(carpool.getId())
+                .forEach(passenger -> recipientIds.add(passenger.getPassengerId()));
+
+        for (UUID recipientId : recipientIds) {
+            userRepository.findById(recipientId).ifPresent(user -> {
+                String body = "Bonjour " + user.getFirstName() + ",\n\n"
+                        + reason + "\n\n"
+                        + "Ce covoiturage a donc été annulé automatiquement. Vous pouvez en proposer un nouveau "
+                        + "ou rejoindre une autre proposition depuis l'application.\n\n"
+                        + "L'équipe CoLife";
+                notificationPort.send(user.getEmail(), subject, body);
+            });
+        }
     }
 
     @Transactional
