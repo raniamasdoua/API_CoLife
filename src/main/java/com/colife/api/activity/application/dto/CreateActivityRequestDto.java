@@ -8,9 +8,11 @@ import jakarta.validation.constraints.Positive;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 import com.colife.api.activity.domain.LocationType;
 import com.colife.api.carpool.application.dto.CarpoolRequestDto;
+import com.colife.api.material.application.dto.MaterialRequestDto;
 
 public record CreateActivityRequestDto(
         @NotBlank(message = "est obligatoire") String title,
@@ -22,6 +24,7 @@ public record CreateActivityRequestDto(
         @Positive(message = "doit être strictement positive") int capacity,
         @NotNull(message = "est obligatoire") @Valid LocationDto location,
         LocationType locationType,
-        @Valid CarpoolRequestDto carpool
+        @Valid CarpoolRequestDto carpool,
+        @Valid List<MaterialRequestDto> materials
 ) {
 }

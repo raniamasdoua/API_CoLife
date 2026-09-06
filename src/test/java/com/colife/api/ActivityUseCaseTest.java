@@ -21,6 +21,7 @@ import com.colife.api.carpool.application.dto.CarpoolRequestDto;
 import com.colife.api.carpool.domain.Carpool;
 import com.colife.api.carpool.domain.CarpoolPassengerRepositoryPort;
 import com.colife.api.carpool.domain.CarpoolRepositoryPort;
+import com.colife.api.material.domain.MaterialRepositoryPort;
 import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ConflictException;
 import com.colife.api.shared.exception.ForbiddenException;
@@ -81,6 +82,8 @@ class ActivityUseCaseTest {
     @Mock
     private CarpoolPassengerRepositoryPort carpoolPassengerRepository;
     @Mock
+    private MaterialRepositoryPort materialRepository;
+    @Mock
     private NotificationPort notificationPort;
 
     private ActivityUseCase activityUseCase;
@@ -94,6 +97,7 @@ class ActivityUseCaseTest {
                 subscriptionRepository,
                 carpoolRepository,
                 carpoolPassengerRepository,
+                materialRepository,
                 notificationPort,
                 FIXED_CLOCK);
     }
@@ -116,6 +120,7 @@ class ActivityUseCaseTest {
                 8,
                 offSite("10 rue A", "75001", "Paris"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         when(userRepository.findById(organizerId)).thenReturn(Optional.of(mock(User.class)));
@@ -179,6 +184,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
@@ -201,6 +207,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
@@ -223,6 +230,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
@@ -253,6 +261,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
     }
 
@@ -902,7 +911,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noRoom, LocationType.ON_SITE, null);
+                noRoom, LocationType.ON_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("salle");
@@ -917,7 +926,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noStreet, LocationType.OFF_SITE, null);
+                noStreet, LocationType.OFF_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("rue");
@@ -932,7 +941,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noPostal, LocationType.OFF_SITE, null);
+                noPostal, LocationType.OFF_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("code postal");
@@ -947,7 +956,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noCity, LocationType.OFF_SITE, null);
+                noCity, LocationType.OFF_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("ville");
@@ -963,7 +972,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                onSite, LocationType.ON_SITE, carpoolDto);
+                onSite, LocationType.ON_SITE, carpoolDto, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("covoiturage");
@@ -991,7 +1000,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                offSite("r", "p", "c"), LocationType.OFF_SITE, carpoolDto);
+                offSite("r", "p", "c"), LocationType.OFF_SITE, carpoolDto, null);
 
         ActivityResponseDto result = activityUseCase.create(ORGANIZER_ID, dto);
 
