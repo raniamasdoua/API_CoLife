@@ -28,6 +28,9 @@ import com.colife.api.material.application.dto.MaterialRequestDto;
 import com.colife.api.material.application.dto.MaterialResponseDto;
 import com.colife.api.material.domain.MaterialProposal;
 import com.colife.api.material.domain.MaterialRepositoryPort;
+import com.colife.api.notification.domain.Notification;
+import com.colife.api.notification.domain.NotificationRepositoryPort;
+import com.colife.api.notification.domain.NotificationType;
 import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ConflictException;
 import com.colife.api.shared.exception.ForbiddenException;
@@ -62,6 +65,7 @@ public class ActivityUseCase {
     private final CarpoolPassengerRepositoryPort carpoolPassengerRepository;
     private final MaterialRepositoryPort materialRepository;
     private final NotificationPort notificationPort;
+    private final NotificationRepositoryPort notificationRepository;
     private final Clock clock;
 
     public ActivityUseCase(
@@ -73,6 +77,7 @@ public class ActivityUseCase {
             CarpoolPassengerRepositoryPort carpoolPassengerRepository,
             MaterialRepositoryPort materialRepository,
             NotificationPort notificationPort,
+            NotificationRepositoryPort notificationRepository,
             Clock clock) {
         this.activityRepository = activityRepository;
         this.activityTypeRepository = activityTypeRepository;
@@ -82,6 +87,7 @@ public class ActivityUseCase {
         this.carpoolPassengerRepository = carpoolPassengerRepository;
         this.materialRepository = materialRepository;
         this.notificationPort = notificationPort;
+        this.notificationRepository = notificationRepository;
         this.clock = clock;
     }
 
@@ -333,6 +339,8 @@ public class ActivityUseCase {
                 + " à " + activity.getEndTime().format(TIME_FORMAT);
         String subject = "Changement d'horaire : " + activity.getTitle();
 
+        String inAppMessage = "Le nouveau créneau de \"" + activity.getTitle() + "\" est : " + newSlot + ".";
+
         for (UUID participantId : participantIds) {
             userRepository.findById(participantId).ifPresent(user -> {
                 String body = "Bonjour " + user.getFirstName() + ",\n\n"
@@ -342,6 +350,7 @@ public class ActivityUseCase {
                         + "L'équipe CoLife";
                 notificationPort.send(user.getEmail(), subject, body);
             });
+            saveNotification(participantId, NotificationType.ACTIVITY_UPDATED, subject, inAppMessage, activity.getId());
         }
     }
 
@@ -362,7 +371,21 @@ public class ActivityUseCase {
                         + "L'équipe CoLife";
                 notificationPort.send(user.getEmail(), subject, body);
             });
+            saveNotification(recipientId, NotificationType.CARPOOL_CANCELLED, subject, reason, activity.getId());
         }
+    }
+
+    private void saveNotification(UUID recipientId, NotificationType type, String title, String message, Long activityId) {
+        Notification notification = Notification.builder()
+                .recipientId(recipientId)
+                .type(type)
+                .title(title)
+                .message(message)
+                .activityId(activityId)
+                .read(false)
+                .createdAt(LocalDateTime.now(clock))
+                .build();
+        notificationRepository.save(notification);
     }
 
     @Transactional
@@ -388,8 +411,31 @@ public class ActivityUseCase {
             carpoolRepository.cancelAllByActivityId(activityId);
         }
 
+        List<UUID> participantOnlyIds = subscriptionRepository.findUserIdsByActivityId(activityId).stream()
+                .filter(id -> !id.equals(activity.getOrganizerId()))
+                .toList();
+        if (!participantOnlyIds.isEmpty()) {
+            notifyActivityCancelled(activity, participantOnlyIds);
+        }
+
         subscriptionRepository.deleteAllByActivityId(activityId);
         activityRepository.softDelete(activityId);
+    }
+
+    private void notifyActivityCancelled(Activity activity, List<UUID> participantIds) {
+        String subject = "Activité annulée : " + activity.getTitle();
+        String reason = "L'organisateur a annulé l'activité \"" + activity.getTitle() + "\" prévue le "
+                + activity.getDate().format(DATE_FORMAT) + " à " + activity.getStartTime().format(TIME_FORMAT) + ".";
+
+        for (UUID participantId : participantIds) {
+            userRepository.findById(participantId).ifPresent(user -> {
+                String body = "Bonjour " + user.getFirstName() + ",\n\n"
+                        + reason + "\n\n"
+                        + "L'équipe CoLife";
+                notificationPort.send(user.getEmail(), subject, body);
+            });
+            saveNotification(participantId, NotificationType.ACTIVITY_CANCELLED, subject, reason, activity.getId());
+        }
     }
 
     @Transactional(readOnly = true)

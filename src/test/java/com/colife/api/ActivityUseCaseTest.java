@@ -22,6 +22,9 @@ import com.colife.api.carpool.domain.Carpool;
 import com.colife.api.carpool.domain.CarpoolPassengerRepositoryPort;
 import com.colife.api.carpool.domain.CarpoolRepositoryPort;
 import com.colife.api.material.domain.MaterialRepositoryPort;
+import com.colife.api.notification.domain.Notification;
+import com.colife.api.notification.domain.NotificationRepositoryPort;
+import com.colife.api.notification.domain.NotificationType;
 import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ConflictException;
 import com.colife.api.shared.exception.ForbiddenException;
@@ -48,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -85,6 +89,8 @@ class ActivityUseCaseTest {
     private MaterialRepositoryPort materialRepository;
     @Mock
     private NotificationPort notificationPort;
+    @Mock
+    private NotificationRepositoryPort notificationRepository;
 
     private ActivityUseCase activityUseCase;
 
@@ -99,6 +105,7 @@ class ActivityUseCaseTest {
                 carpoolPassengerRepository,
                 materialRepository,
                 notificationPort,
+                notificationRepository,
                 FIXED_CLOCK);
     }
 
@@ -1080,6 +1087,8 @@ class ActivityUseCaseTest {
         verify(carpoolPassengerRepository).removeAllByCarpoolIds(List.of(7L));
         verify(carpoolRepository).cancelByIds(List.of(7L));
         verify(notificationPort).send(eq("sam@test.fr"), any(String.class), any(String.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(PARTICIPANT_ID) && n.getType() == NotificationType.CARPOOL_CANCELLED));
     }
 
     @Test
@@ -1140,5 +1149,41 @@ class ActivityUseCaseTest {
         // Un seul email envoyé, et uniquement au participant (l'organisateur est à l'origine du changement).
         verify(notificationPort, times(1)).send(any(String.class), any(String.class), any(String.class));
         verify(notificationPort).send(eq("ana@test.fr"), any(String.class), any(String.class));
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(PARTICIPANT_ID) && n.getType() == NotificationType.ACTIVITY_UPDATED));
+    }
+
+    // ─── Tests : delete() – notification d'annulation ──────────────────────
+
+    @Test
+    void should_notify_participants_but_not_organizer_when_activity_is_cancelled() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID))
+                .thenReturn(List.of(ORGANIZER_ID, PARTICIPANT_ID));
+
+        User participant = mock(User.class);
+        when(participant.getFirstName()).thenReturn("Ana");
+        when(participant.getEmail()).thenReturn("ana@test.fr");
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant));
+
+        activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID);
+
+        verify(notificationPort, times(1)).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationPort).send(eq("ana@test.fr"), any(String.class), any(String.class));
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(PARTICIPANT_ID) && n.getType() == NotificationType.ACTIVITY_CANCELLED));
+    }
+
+    @Test
+    void should_not_notify_anyone_when_no_participants_on_delete() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
+
+        activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID);
+
+        verify(notificationPort, never()).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationRepository, never()).save(any(Notification.class));
     }
 }
