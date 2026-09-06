@@ -785,6 +785,18 @@ class ActivityUseCaseTest {
     }
 
     @Test
+    void getUserActivities_should_return_organized_and_registered_activities() {
+        when(activityRepository.findByOrganizerId(PARTICIPANT_ID)).thenReturn(List.of(futureActivity()));
+        when(activityRepository.findSubscribedAsNonOrganizer(PARTICIPANT_ID)).thenReturn(List.of(futureActivity()));
+        stubToResponseList();
+
+        var result = activityUseCase.getUserActivities(PARTICIPANT_ID);
+
+        assertThat(result.organized()).hasSize(1);
+        assertThat(result.registered()).hasSize(1);
+    }
+
+    @Test
     void getAvailableActivities_should_exclude_own_activities() {
         Activity ownActivity = Activity.builder()
                 .id(300L).title("La mienne").capacity(5)

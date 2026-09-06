@@ -9,6 +9,7 @@ import com.colife.api.activity.application.dto.CreateActivityRequestDto;
 import com.colife.api.activity.application.dto.LocationDto;
 import com.colife.api.activity.application.dto.ParticipantDto;
 import com.colife.api.activity.application.dto.UpdateActivityRequestDto;
+import com.colife.api.activity.application.dto.UserActivitiesDto;
 import com.colife.api.activity.domain.Activity;
 import com.colife.api.activity.domain.ActivityCreationPolicy;
 import com.colife.api.activity.domain.ActivityRepositoryPort;
@@ -399,6 +400,11 @@ public class ActivityUseCase {
     public List<ActivityResponseDto> getRegisteredActivities(UUID userId) {
         List<Activity> activities = activityRepository.findSubscribedAsNonOrganizer(userId);
         return toResponseList(activities);
+    }
+
+    @Transactional(readOnly = true)
+    public UserActivitiesDto getUserActivities(UUID userId) {
+        return new UserActivitiesDto(getMyActivities(userId), getRegisteredActivities(userId));
     }
 
     @Transactional(readOnly = true)
