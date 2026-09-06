@@ -57,6 +57,7 @@ class ActivityControllerTest {
                 12,
                 new LocationDto(null, "5 av", "Bât B", "69000", "Lyon"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         ActivityResponseDto responseDto = new ActivityResponseDto(
@@ -73,7 +74,8 @@ class ActivityControllerTest {
                 "Organisateur Test",
                 false,
                 LocationType.OFF_SITE,
-                null);
+                null,
+                List.of());
 
         when(activityUseCase.create(eq(USER_ID), any(CreateActivityRequestDto.class))).thenReturn(responseDto);
 
@@ -97,7 +99,8 @@ class ActivityControllerTest {
                 "Organisateur Test",
                 false,
                 LocationType.OFF_SITE,
-                null);
+                null,
+                List.of());
     }
 
     private UpdateActivityRequestDto updateDto() {

@@ -21,6 +21,10 @@ import com.colife.api.carpool.application.dto.CarpoolRequestDto;
 import com.colife.api.carpool.domain.Carpool;
 import com.colife.api.carpool.domain.CarpoolPassengerRepositoryPort;
 import com.colife.api.carpool.domain.CarpoolRepositoryPort;
+import com.colife.api.material.domain.MaterialRepositoryPort;
+import com.colife.api.notification.domain.Notification;
+import com.colife.api.notification.domain.NotificationRepositoryPort;
+import com.colife.api.notification.domain.NotificationType;
 import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ConflictException;
 import com.colife.api.shared.exception.ForbiddenException;
@@ -47,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -81,7 +86,11 @@ class ActivityUseCaseTest {
     @Mock
     private CarpoolPassengerRepositoryPort carpoolPassengerRepository;
     @Mock
+    private MaterialRepositoryPort materialRepository;
+    @Mock
     private NotificationPort notificationPort;
+    @Mock
+    private NotificationRepositoryPort notificationRepository;
 
     private ActivityUseCase activityUseCase;
 
@@ -94,7 +103,9 @@ class ActivityUseCaseTest {
                 subscriptionRepository,
                 carpoolRepository,
                 carpoolPassengerRepository,
+                materialRepository,
                 notificationPort,
+                notificationRepository,
                 FIXED_CLOCK);
     }
 
@@ -116,6 +127,7 @@ class ActivityUseCaseTest {
                 8,
                 offSite("10 rue A", "75001", "Paris"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         when(userRepository.findById(organizerId)).thenReturn(Optional.of(mock(User.class)));
@@ -179,6 +191,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
@@ -201,6 +214,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
@@ -223,6 +237,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
@@ -253,6 +268,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
     }
 
@@ -785,6 +801,18 @@ class ActivityUseCaseTest {
     }
 
     @Test
+    void getUserActivities_should_return_organized_and_registered_activities() {
+        when(activityRepository.findByOrganizerId(PARTICIPANT_ID)).thenReturn(List.of(futureActivity()));
+        when(activityRepository.findSubscribedAsNonOrganizer(PARTICIPANT_ID)).thenReturn(List.of(futureActivity()));
+        stubToResponseList();
+
+        var result = activityUseCase.getUserActivities(PARTICIPANT_ID);
+
+        assertThat(result.organized()).hasSize(1);
+        assertThat(result.registered()).hasSize(1);
+    }
+
+    @Test
     void getAvailableActivities_should_exclude_own_activities() {
         Activity ownActivity = Activity.builder()
                 .id(300L).title("La mienne").capacity(5)
@@ -890,7 +918,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noRoom, LocationType.ON_SITE, null);
+                noRoom, LocationType.ON_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("salle");
@@ -905,7 +933,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noStreet, LocationType.OFF_SITE, null);
+                noStreet, LocationType.OFF_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("rue");
@@ -920,7 +948,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noPostal, LocationType.OFF_SITE, null);
+                noPostal, LocationType.OFF_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("code postal");
@@ -935,7 +963,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noCity, LocationType.OFF_SITE, null);
+                noCity, LocationType.OFF_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("ville");
@@ -951,7 +979,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                onSite, LocationType.ON_SITE, carpoolDto);
+                onSite, LocationType.ON_SITE, carpoolDto, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("covoiturage");
@@ -979,7 +1007,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                offSite("r", "p", "c"), LocationType.OFF_SITE, carpoolDto);
+                offSite("r", "p", "c"), LocationType.OFF_SITE, carpoolDto, null);
 
         ActivityResponseDto result = activityUseCase.create(ORGANIZER_ID, dto);
 
@@ -1059,6 +1087,8 @@ class ActivityUseCaseTest {
         verify(carpoolPassengerRepository).removeAllByCarpoolIds(List.of(7L));
         verify(carpoolRepository).cancelByIds(List.of(7L));
         verify(notificationPort).send(eq("sam@test.fr"), any(String.class), any(String.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(PARTICIPANT_ID) && n.getType() == NotificationType.CARPOOL_CANCELLED));
     }
 
     @Test
@@ -1119,5 +1149,41 @@ class ActivityUseCaseTest {
         // Un seul email envoyé, et uniquement au participant (l'organisateur est à l'origine du changement).
         verify(notificationPort, times(1)).send(any(String.class), any(String.class), any(String.class));
         verify(notificationPort).send(eq("ana@test.fr"), any(String.class), any(String.class));
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(PARTICIPANT_ID) && n.getType() == NotificationType.ACTIVITY_UPDATED));
+    }
+
+    // ─── Tests : delete() – notification d'annulation ──────────────────────
+
+    @Test
+    void should_notify_participants_but_not_organizer_when_activity_is_cancelled() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID))
+                .thenReturn(List.of(ORGANIZER_ID, PARTICIPANT_ID));
+
+        User participant = mock(User.class);
+        when(participant.getFirstName()).thenReturn("Ana");
+        when(participant.getEmail()).thenReturn("ana@test.fr");
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant));
+
+        activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID);
+
+        verify(notificationPort, times(1)).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationPort).send(eq("ana@test.fr"), any(String.class), any(String.class));
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(PARTICIPANT_ID) && n.getType() == NotificationType.ACTIVITY_CANCELLED));
+    }
+
+    @Test
+    void should_not_notify_anyone_when_no_participants_on_delete() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
+
+        activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID);
+
+        verify(notificationPort, never()).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationRepository, never()).save(any(Notification.class));
     }
 }

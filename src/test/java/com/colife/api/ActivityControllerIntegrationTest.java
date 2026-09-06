@@ -140,6 +140,7 @@ class ActivityControllerIntegrationTest {
                 14,
                 new LocationDto(null, "Stade municipal", null, "44000", "Nantes"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         mockMvc.perform(post("/activities")
@@ -160,6 +161,7 @@ class ActivityControllerIntegrationTest {
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
                 new LocationDto(null, "a", null, "b", "c"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         mockMvc.perform(post("/activities")
@@ -198,6 +200,7 @@ class ActivityControllerIntegrationTest {
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
                 new LocationDto(null, "a", null, "b", "c"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         mockMvc.perform(post("/activities")
@@ -215,6 +218,7 @@ class ActivityControllerIntegrationTest {
                 LocalTime.of(14, 0), LocalTime.of(16, 0), 5,
                 new LocationDto(null, "a", null, "b", "c"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         mockMvc.perform(post("/activities")
@@ -427,6 +431,7 @@ class ActivityControllerIntegrationTest {
                 LocalTime.of(14, 0), LocalTime.of(16, 0), 5,
                 new LocationDto(null, "2 rue B", null, "75002", "Paris"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         String createResponse = mockMvc.perform(post("/activities")
