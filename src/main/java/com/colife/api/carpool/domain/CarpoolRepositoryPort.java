@@ -24,4 +24,7 @@ public interface CarpoolRepositoryPort {
 
     /** Annule tous les covoiturages actifs d'une activité (suppression de l'activité). */
     void cancelAllByActivityId(Long activityId);
+
+    /** Annule une liste précise de covoiturages actifs (ex. devenus incompatibles avec un nouvel horaire). */
+    void cancelByIds(List<Long> carpoolIds);
 }

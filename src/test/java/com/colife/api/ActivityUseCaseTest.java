@@ -21,10 +21,15 @@ import com.colife.api.carpool.application.dto.CarpoolRequestDto;
 import com.colife.api.carpool.domain.Carpool;
 import com.colife.api.carpool.domain.CarpoolPassengerRepositoryPort;
 import com.colife.api.carpool.domain.CarpoolRepositoryPort;
+import com.colife.api.material.domain.MaterialRepositoryPort;
+import com.colife.api.notification.domain.Notification;
+import com.colife.api.notification.domain.NotificationRepositoryPort;
+import com.colife.api.notification.domain.NotificationType;
 import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ConflictException;
 import com.colife.api.shared.exception.ForbiddenException;
 import com.colife.api.shared.exception.ResourceNotFoundException;
+import com.colife.api.shared.notification.NotificationPort;
 import com.colife.api.subscription.domain.SubscriptionRepositoryPort;
 import com.colife.api.user.domain.User;
 import com.colife.api.user.domain.UserRepositoryPort;
@@ -46,11 +51,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -78,6 +85,12 @@ class ActivityUseCaseTest {
     private CarpoolRepositoryPort carpoolRepository;
     @Mock
     private CarpoolPassengerRepositoryPort carpoolPassengerRepository;
+    @Mock
+    private MaterialRepositoryPort materialRepository;
+    @Mock
+    private NotificationPort notificationPort;
+    @Mock
+    private NotificationRepositoryPort notificationRepository;
 
     private ActivityUseCase activityUseCase;
 
@@ -90,6 +103,9 @@ class ActivityUseCaseTest {
                 subscriptionRepository,
                 carpoolRepository,
                 carpoolPassengerRepository,
+                materialRepository,
+                notificationPort,
+                notificationRepository,
                 FIXED_CLOCK);
     }
 
@@ -111,6 +127,7 @@ class ActivityUseCaseTest {
                 8,
                 offSite("10 rue A", "75001", "Paris"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         when(userRepository.findById(organizerId)).thenReturn(Optional.of(mock(User.class)));
@@ -174,6 +191,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
@@ -196,6 +214,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
@@ -218,6 +237,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
@@ -248,6 +268,7 @@ class ActivityUseCaseTest {
                 5,
                 offSite("r", "c", "city"),
                 LocationType.OFF_SITE,
+                null,
                 null);
     }
 
@@ -472,6 +493,7 @@ class ActivityUseCaseTest {
         activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID);
 
         verify(subscriptionRepository).deleteAllByActivityId(ACTIVITY_ID);
+        verify(materialRepository).softDeleteAllByActivityId(ACTIVITY_ID);
         verify(activityRepository).softDelete(ACTIVITY_ID);
     }
 
@@ -697,6 +719,45 @@ class ActivityUseCaseTest {
                 .hasMessageContaining("conflit");
     }
 
+    @Test
+    void subscribe_notifies_organizer_of_new_subscriber_when_activity_not_full() {
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant()));
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, PARTICIPANT_ID)).thenReturn(false);
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(3);
+        when(activityRepository.existsOverlappingForUsersAsOrganizer(anyList(), any(), any(), any(), anyLong())).thenReturn(false);
+        when(subscriptionRepository.existsConflictingActivityForSubscribedUsers(anyList(), any(), any(), any(), anyLong())).thenReturn(false);
+        when(activityTypeRepository.findByIdIncludingDeleted(TYPE_ID)).thenReturn(Optional.of(sampleType()));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(organizer()));
+        when(carpoolRepository.findByActivityId(ACTIVITY_ID)).thenReturn(Optional.empty());
+
+        activityUseCase.subscribe(PARTICIPANT_ID, ACTIVITY_ID);
+
+        verify(notificationPort).send(eq("jean@test.com"), any(String.class), any(String.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(ORGANIZER_ID) && n.getType() == NotificationType.NEW_SUBSCRIBER));
+    }
+
+    @Test
+    void subscribe_sends_a_single_combined_notification_when_it_fills_the_last_spot() {
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant()));
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, PARTICIPANT_ID)).thenReturn(false);
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(9); // capacité 10 : 9 + 1 = complet
+        when(activityRepository.existsOverlappingForUsersAsOrganizer(anyList(), any(), any(), any(), anyLong())).thenReturn(false);
+        when(subscriptionRepository.existsConflictingActivityForSubscribedUsers(anyList(), any(), any(), any(), anyLong())).thenReturn(false);
+        when(activityTypeRepository.findByIdIncludingDeleted(TYPE_ID)).thenReturn(Optional.of(sampleType()));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(organizer()));
+        when(carpoolRepository.findByActivityId(ACTIVITY_ID)).thenReturn(Optional.empty());
+
+        activityUseCase.subscribe(PARTICIPANT_ID, ACTIVITY_ID);
+
+        verify(notificationPort, times(1)).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(ORGANIZER_ID) && n.getType() == NotificationType.ACTIVITY_FULL));
+    }
+
     // ─── Tests : getParticipants ─────────────────────────────────────────────
 
     @Test
@@ -777,6 +838,18 @@ class ActivityUseCaseTest {
 
         assertThat(result).hasSize(1);
         verify(activityRepository).findSubscribedAsNonOrganizer(PARTICIPANT_ID);
+    }
+
+    @Test
+    void getUserActivities_should_return_organized_and_registered_activities() {
+        when(activityRepository.findByOrganizerId(PARTICIPANT_ID)).thenReturn(List.of(futureActivity()));
+        when(activityRepository.findSubscribedAsNonOrganizer(PARTICIPANT_ID)).thenReturn(List.of(futureActivity()));
+        stubToResponseList();
+
+        var result = activityUseCase.getUserActivities(PARTICIPANT_ID);
+
+        assertThat(result.organized()).hasSize(1);
+        assertThat(result.registered()).hasSize(1);
     }
 
     @Test
@@ -885,7 +958,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noRoom, LocationType.ON_SITE, null);
+                noRoom, LocationType.ON_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("salle");
@@ -900,7 +973,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noStreet, LocationType.OFF_SITE, null);
+                noStreet, LocationType.OFF_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("rue");
@@ -915,7 +988,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noPostal, LocationType.OFF_SITE, null);
+                noPostal, LocationType.OFF_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("code postal");
@@ -930,7 +1003,7 @@ class ActivityUseCaseTest {
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                noCity, LocationType.OFF_SITE, null);
+                noCity, LocationType.OFF_SITE, null, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("ville");
@@ -942,11 +1015,11 @@ class ActivityUseCaseTest {
         when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(
                 ActivityType.builder().id(2L).name("X").build()));
         LocationDto onSite = new LocationDto("Salle A", null, null, null, null);
-        CarpoolRequestDto carpoolDto = new CarpoolRequestDto(LocalTime.of(8, 0), 3);
+        CarpoolRequestDto carpoolDto = new CarpoolRequestDto(LocalTime.of(8, 0), 3, "Rue Test", null, "75000", "Paris");
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                onSite, LocationType.ON_SITE, carpoolDto);
+                onSite, LocationType.ON_SITE, carpoolDto, null);
         assertThatThrownBy(() -> activityUseCase.create(ORGANIZER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("covoiturage");
@@ -970,11 +1043,11 @@ class ActivityUseCaseTest {
                 .id(5L).activityId(ACTIVITY_ID).driverId(ORGANIZER_ID)
                 .departureTime(LocalTime.of(8, 0)).maxPassengers(3).build();
         when(carpoolRepository.save(any(Carpool.class))).thenReturn(savedCarpool);
-        CarpoolRequestDto carpoolDto = new CarpoolRequestDto(LocalTime.of(8, 0), 3);
+        CarpoolRequestDto carpoolDto = new CarpoolRequestDto(LocalTime.of(8, 0), 3, "Rue Test", null, "75000", "Paris");
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
-                offSite("r", "p", "c"), LocationType.OFF_SITE, carpoolDto);
+                offSite("r", "p", "c"), LocationType.OFF_SITE, carpoolDto, null);
 
         ActivityResponseDto result = activityUseCase.create(ORGANIZER_ID, dto);
 
@@ -1007,6 +1080,150 @@ class ActivityUseCaseTest {
         activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, onSiteDto);
 
         verify(carpoolPassengerRepository).removeAllByCarpoolIds(List.of(5L));
-        verify(carpoolRepository).cancelAllByActivityId(ACTIVITY_ID);
+        verify(carpoolRepository).cancelByIds(List.of(5L));
+    }
+
+    // ─── Tests : update() – covoiturage invalidé par un changement d'horaire ──
+
+    @Test
+    void should_cancel_carpool_and_notify_driver_when_new_start_time_invalidates_departure() {
+        ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
+        Activity existing = Activity.builder()
+                .id(ACTIVITY_ID).title("Sortie").description(null).capacity(10)
+                .location(Location.builder().locationType(LocationType.OFF_SITE).street("r").postalCode("p").city("c").complement(null).build())
+                .typeId(2L).organizerId(ORGANIZER_ID)
+                .date(LocalDate.of(2026, Month.MARCH, 30))
+                .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(11, 0))
+                .deleted(false).locationType(LocationType.OFF_SITE).build();
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(existing));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(1);
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
+        when(activityRepository.update(any(Activity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
+
+        // Départ à 9h, initialement valide (< 10h). Reproduit le cas testé manuellement :
+        // organisateur avance le début de l'activité à 8h → le départ à 9h devient incohérent.
+        Carpool carpool = Carpool.builder().id(7L).activityId(ACTIVITY_ID).driverId(PARTICIPANT_ID)
+                .departureTime(LocalTime.of(9, 0)).maxPassengers(3).build();
+        when(carpoolRepository.findAllActiveByActivityId(ACTIVITY_ID)).thenReturn(List.of(carpool));
+        when(carpoolPassengerRepository.findAllActivePassengersByCarpoolId(7L)).thenReturn(List.of());
+
+        User driver = mock(User.class);
+        when(driver.getFirstName()).thenReturn("Sam");
+        when(driver.getEmail()).thenReturn("sam@test.fr");
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(driver));
+
+        UpdateActivityRequestDto dto = new UpdateActivityRequestDto(
+                "Sortie", null, 2L,
+                LocalDate.of(2026, Month.MARCH, 30),
+                LocalTime.of(8, 0), LocalTime.of(11, 0),
+                10,
+                offSite("r", "p", "c"),
+                LocationType.OFF_SITE);
+
+        activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, dto);
+
+        verify(carpoolPassengerRepository).removeAllByCarpoolIds(List.of(7L));
+        verify(carpoolRepository).cancelByIds(List.of(7L));
+        verify(notificationPort).send(eq("sam@test.fr"), any(String.class), any(String.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(PARTICIPANT_ID) && n.getType() == NotificationType.CARPOOL_CANCELLED));
+    }
+
+    @Test
+    void should_not_cancel_carpool_when_departure_still_valid_after_schedule_change() {
+        ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
+        Activity existing = Activity.builder()
+                .id(ACTIVITY_ID).title("Sortie").description(null).capacity(10)
+                .location(Location.builder().locationType(LocationType.OFF_SITE).street("r").postalCode("p").city("c").complement(null).build())
+                .typeId(2L).organizerId(ORGANIZER_ID)
+                .date(LocalDate.of(2026, Month.MARCH, 30))
+                .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(11, 0))
+                .deleted(false).locationType(LocationType.OFF_SITE).build();
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(existing));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(1);
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
+        when(activityRepository.update(any(Activity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
+
+        // Départ à 9h : le nouvel horaire (10h30) reste compatible, aucune annulation attendue.
+        Carpool carpool = Carpool.builder().id(7L).activityId(ACTIVITY_ID).driverId(PARTICIPANT_ID)
+                .departureTime(LocalTime.of(9, 0)).maxPassengers(3).build();
+        when(carpoolRepository.findAllActiveByActivityId(ACTIVITY_ID)).thenReturn(List.of(carpool));
+
+        UpdateActivityRequestDto dto = new UpdateActivityRequestDto(
+                "Sortie", null, 2L,
+                LocalDate.of(2026, Month.MARCH, 30),
+                LocalTime.of(10, 30), LocalTime.of(11, 30),
+                10,
+                offSite("r", "p", "c"),
+                LocationType.OFF_SITE);
+
+        activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, dto);
+
+        verify(carpoolPassengerRepository, never()).removeAllByCarpoolIds(anyList());
+        verify(carpoolRepository, never()).cancelByIds(anyList());
+    }
+
+    @Test
+    void should_notify_participant_but_not_organizer_when_schedule_changes() {
+        ActivityType type = ActivityType.builder().id(2L).name("Sport").build();
+        Activity existing = futureActivity();
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(existing));
+        when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(type));
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(2);
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID))
+                .thenReturn(List.of(ORGANIZER_ID, PARTICIPANT_ID));
+        when(activityRepository.update(any(Activity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(mock(User.class)));
+
+        User participant = mock(User.class);
+        when(participant.getFirstName()).thenReturn("Ana");
+        when(participant.getEmail()).thenReturn("ana@test.fr");
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant));
+
+        activityUseCase.update(ORGANIZER_ID, false, ACTIVITY_ID, validUpdateDto());
+
+        // Un seul email envoyé, et uniquement au participant (l'organisateur est à l'origine du changement).
+        verify(notificationPort, times(1)).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationPort).send(eq("ana@test.fr"), any(String.class), any(String.class));
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(PARTICIPANT_ID) && n.getType() == NotificationType.ACTIVITY_UPDATED));
+    }
+
+    // ─── Tests : delete() – notification d'annulation ──────────────────────
+
+    @Test
+    void should_notify_participants_but_not_organizer_when_activity_is_cancelled() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID))
+                .thenReturn(List.of(ORGANIZER_ID, PARTICIPANT_ID));
+
+        User participant = mock(User.class);
+        when(participant.getFirstName()).thenReturn("Ana");
+        when(participant.getEmail()).thenReturn("ana@test.fr");
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant));
+
+        activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID);
+
+        verify(notificationPort, times(1)).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationPort).send(eq("ana@test.fr"), any(String.class), any(String.class));
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(PARTICIPANT_ID) && n.getType() == NotificationType.ACTIVITY_CANCELLED));
+    }
+
+    @Test
+    void should_not_notify_anyone_when_no_participants_on_delete() {
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.findUserIdsByActivityId(ACTIVITY_ID)).thenReturn(List.of(ORGANIZER_ID));
+
+        activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID);
+
+        verify(notificationPort, never()).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationRepository, never()).save(any(Notification.class));
     }
 }

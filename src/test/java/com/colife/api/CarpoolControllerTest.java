@@ -50,7 +50,8 @@ class CarpoolControllerTest {
         return new CarpoolDetailDto(
                 1L, 10L, DRIVER_ID, "Jean Dupont",
                 LocalTime.of(9, 0), 3, 1, 2,
-                CarpoolStatus.ACTIVE, List.of()
+                CarpoolStatus.ACTIVE, List.of(),
+                "Rue Test", null, "75000", "Paris"
         );
     }
 
@@ -70,7 +71,7 @@ class CarpoolControllerTest {
 
     @Test
     void create_should_return_201_with_carpool_detail() {
-        CarpoolRequestDto requestDto = new CarpoolRequestDto(LocalTime.of(9, 0), 3);
+        CarpoolRequestDto requestDto = new CarpoolRequestDto(LocalTime.of(9, 0), 3, "Rue Test", null, "75000", "Paris");
         when(carpoolUseCase.createCarpool(10L, DRIVER_ID, requestDto)).thenReturn(sampleDetail());
 
         ResponseEntity<CarpoolDetailDto> response = controller.create(10L, driverPrincipal(), requestDto);
@@ -83,7 +84,7 @@ class CarpoolControllerTest {
 
     @Test
     void update_should_return_200_with_updated_detail() {
-        CarpoolRequestDto requestDto = new CarpoolRequestDto(LocalTime.of(10, 0), 4);
+        CarpoolRequestDto requestDto = new CarpoolRequestDto(LocalTime.of(10, 0), 4, "Rue Test", null, "75000", "Paris");
         when(carpoolUseCase.updateCarpoolByDriver(10L, 1L, DRIVER_ID, requestDto)).thenReturn(sampleDetail());
 
         ResponseEntity<CarpoolDetailDto> response = controller.update(10L, 1L, driverPrincipal(), requestDto);

@@ -25,11 +25,13 @@ import com.colife.api.activity.application.dto.ActivityResponseDto;
 import com.colife.api.activity.application.dto.CreateActivityRequestDto;
 import com.colife.api.activity.application.dto.ParticipantDto;
 import com.colife.api.activity.application.dto.UpdateActivityRequestDto;
+import com.colife.api.activity.application.dto.UserActivitiesDto;
 import com.colife.api.shared.openapi.OpenApiConfig;
 import com.colife.api.shared.security.JwtPrincipal;
 import com.colife.api.user.domain.Role;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/activities")
@@ -132,6 +134,22 @@ public class ActivityController {
         boolean isAdmin = principal.role() == Role.ADMIN;
         activityUseCase.delete(principal.userId(), isAdmin, activityId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/user/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Lister les activités liées à un utilisateur (admin)",
+            description = "Retourne les activités organisées par l'utilisateur et celles auxquelles il est inscrit. Réservé aux administrateurs."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Liste retournée"),
+            @ApiResponse(responseCode = "401", description = "Authentification requise"),
+            @ApiResponse(responseCode = "403", description = "Droits admin requis")
+    })
+    public ResponseEntity<UserActivitiesDto> getUserActivities(
+            @PathVariable UUID userId) {
+        return ResponseEntity.ok(activityUseCase.getUserActivities(userId));
     }
 
     @GetMapping("/mine")

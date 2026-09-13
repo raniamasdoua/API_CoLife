@@ -8,6 +8,8 @@ import com.colife.api.activity.infrastructure.ActivityJpaRepository;
 import com.colife.api.activity.infrastructure.LocationEmbeddable;
 import com.colife.api.activityType.infrastructure.ActivityTypeEntity;
 import com.colife.api.activityType.infrastructure.ActivityTypeJpaRepository;
+import com.colife.api.material.infrastructure.MaterialEntity;
+import com.colife.api.material.infrastructure.MaterialJpaRepository;
 import com.colife.api.shared.security.JwtPrincipal;
 import com.colife.api.subscription.infrastructure.SubscriptionEntity;
 import com.colife.api.subscription.infrastructure.SubscriptionJpaRepository;
@@ -68,6 +70,9 @@ class ActivityControllerIntegrationTest {
 
     @Autowired
     private SubscriptionJpaRepository subscriptionJpaRepository;
+
+    @Autowired
+    private MaterialJpaRepository materialJpaRepository;
 
     private Long activityTypeId;
     private UUID userId;
@@ -140,6 +145,7 @@ class ActivityControllerIntegrationTest {
                 14,
                 new LocationDto(null, "Stade municipal", null, "44000", "Nantes"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         mockMvc.perform(post("/activities")
@@ -160,6 +166,7 @@ class ActivityControllerIntegrationTest {
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
                 new LocationDto(null, "a", null, "b", "c"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         mockMvc.perform(post("/activities")
@@ -198,6 +205,7 @@ class ActivityControllerIntegrationTest {
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
                 new LocationDto(null, "a", null, "b", "c"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         mockMvc.perform(post("/activities")
@@ -215,6 +223,7 @@ class ActivityControllerIntegrationTest {
                 LocalTime.of(14, 0), LocalTime.of(16, 0), 5,
                 new LocationDto(null, "a", null, "b", "c"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         mockMvc.perform(post("/activities")
@@ -427,6 +436,7 @@ class ActivityControllerIntegrationTest {
                 LocalTime.of(14, 0), LocalTime.of(16, 0), 5,
                 new LocationDto(null, "2 rue B", null, "75002", "Paris"),
                 LocationType.OFF_SITE,
+                null,
                 null);
 
         String createResponse = mockMvc.perform(post("/activities")
@@ -532,6 +542,26 @@ class ActivityControllerIntegrationTest {
         assertThat(activityJpaRepository.findById(activityId)).isPresent();
         assertThat(activityJpaRepository.findById(activityId).orElseThrow().isDeleted()).isTrue();
         assertThat(subscriptionJpaRepository.countActiveByActivityId(activityId)).isZero();
+    }
+
+    @Test
+    void should_soft_delete_materials_when_activity_is_deleted() throws Exception {
+        MaterialEntity material = new MaterialEntity();
+        material.setActivityId(activityId);
+        material.setProposedBy(userId);
+        material.setDescription("Ballon de foot");
+        material.setQuantity(1);
+        material.setCreatedAt(LocalDateTime.now());
+        material.setDeleted(false);
+        material = materialJpaRepository.save(material);
+        Long materialId = material.getId();
+
+        mockMvc.perform(delete("/activities/" + activityId)
+                        .with(authFor(userId, userEmail, Role.COLLABORATOR)))
+                .andExpect(status().isNoContent());
+
+        MaterialEntity persisted = materialJpaRepository.findById(materialId).orElseThrow();
+        assertThat(persisted.isDeleted()).isTrue();
     }
 
     @Test

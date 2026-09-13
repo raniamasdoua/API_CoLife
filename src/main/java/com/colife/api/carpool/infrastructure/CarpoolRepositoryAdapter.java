@@ -59,4 +59,9 @@ public class CarpoolRepositoryAdapter implements CarpoolRepositoryPort {
     public void cancelAllByActivityId(Long activityId) {
         carpoolJpaRepository.cancelAllByActivityId(activityId);
     }
+
+    @Override
+    public void cancelByIds(List<Long> carpoolIds) {
+        carpoolJpaRepository.cancelByIds(carpoolIds);
+    }
 }

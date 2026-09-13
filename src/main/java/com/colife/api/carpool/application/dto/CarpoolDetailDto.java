@@ -16,6 +16,10 @@ public record CarpoolDetailDto(
         int passengerCount,
         int availableSeats,
         CarpoolStatus status,
-        List<CarpoolPassengerSummaryDto> passengers
+        List<CarpoolPassengerSummaryDto> passengers,
+        String departureStreet,
+        String departureComplement,
+        String departurePostalCode,
+        String departureCity
 ) {
 }

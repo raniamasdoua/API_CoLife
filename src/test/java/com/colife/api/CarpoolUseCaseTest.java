@@ -19,8 +19,12 @@ import com.colife.api.carpool.domain.CarpoolPassenger;
 import com.colife.api.carpool.domain.CarpoolPassengerRepositoryPort;
 import com.colife.api.carpool.domain.CarpoolRepositoryPort;
 import com.colife.api.carpool.domain.CarpoolStatus;
+import com.colife.api.notification.domain.Notification;
+import com.colife.api.notification.domain.NotificationRepositoryPort;
+import com.colife.api.notification.domain.NotificationType;
 import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ResourceNotFoundException;
+import com.colife.api.shared.notification.NotificationPort;
 import com.colife.api.subscription.domain.SubscriptionRepositoryPort;
 import com.colife.api.user.domain.User;
 import com.colife.api.user.domain.UserRepositoryPort;
@@ -64,6 +68,10 @@ class CarpoolUseCaseTest {
     private SubscriptionRepositoryPort subscriptionRepository;
     @Mock
     private UserRepositoryPort userRepository;
+    @Mock
+    private NotificationPort notificationPort;
+    @Mock
+    private NotificationRepositoryPort notificationRepository;
 
     private CarpoolUseCase carpoolUseCase;
 
@@ -75,6 +83,8 @@ class CarpoolUseCaseTest {
                 activityRepository,
                 subscriptionRepository,
                 userRepository,
+                notificationPort,
+                notificationRepository,
                 FIXED_CLOCK);
     }
 
@@ -139,7 +149,7 @@ class CarpoolUseCaseTest {
     void create_throws_when_activity_is_on_site() {
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(onSiteActivity()));
 
-        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3);
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3, "Rue Test", null, "75000", "Paris");
         assertThatThrownBy(() -> carpoolUseCase.createCarpool(ACTIVITY_ID, USER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("hors site");
@@ -150,7 +160,7 @@ class CarpoolUseCaseTest {
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(offSiteFutureActivity()));
         when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, USER_ID)).thenReturn(false);
 
-        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3);
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3, "Rue Test", null, "75000", "Paris");
         assertThatThrownBy(() -> carpoolUseCase.createCarpool(ACTIVITY_ID, USER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("inscrit");
@@ -167,7 +177,7 @@ class CarpoolUseCaseTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(mock(User.class)));
         when(carpoolPassengerRepository.findAllActivePassengersByCarpoolId(CARPOOL_ID)).thenReturn(List.of());
 
-        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3);
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3, "Rue Test", null, "75000", "Paris");
         CarpoolDetailDto result = carpoolUseCase.createCarpool(ACTIVITY_ID, USER_ID, dto);
 
         assertThat(result.driverId()).isEqualTo(USER_ID);
@@ -238,7 +248,7 @@ class CarpoolUseCaseTest {
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(offSiteFutureActivity()));
         when(carpoolRepository.findById(CARPOOL_ID)).thenReturn(Optional.of(activeCarpool(ORG_ID)));
 
-        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3);
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3, "Rue Test", null, "75000", "Paris");
         assertThatThrownBy(() -> carpoolUseCase.updateCarpoolByDriver(ACTIVITY_ID, CARPOOL_ID, USER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("conducteur");
@@ -304,7 +314,7 @@ class CarpoolUseCaseTest {
         when(carpoolPassengerRepository.findAllActivePassengersByCarpoolId(CARPOOL_ID))
                 .thenReturn(List.of());
 
-        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3);
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3, "Rue Test", null, "75000", "Paris");
         CarpoolDetailDto result = carpoolUseCase.createCarpool(ACTIVITY_ID, ORG_ID, dto);
 
         assertThat(result.driverId()).isEqualTo(ORG_ID);
@@ -319,7 +329,7 @@ class CarpoolUseCaseTest {
         when(carpoolRepository.findActiveByDriverIdAndActivityId(USER_ID, ACTIVITY_ID))
                 .thenReturn(Optional.of(activeCarpool(USER_ID)));
 
-        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3);
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3, "Rue Test", null, "75000", "Paris");
         assertThatThrownBy(() -> carpoolUseCase.createCarpool(ACTIVITY_ID, USER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("covoiturage");
@@ -338,11 +348,42 @@ class CarpoolUseCaseTest {
         when(carpoolPassengerRepository.findAllActivePassengersByCarpoolId(CARPOOL_ID))
                 .thenReturn(List.of());
 
-        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3);
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3, "Rue Test", null, "75000", "Paris");
         CarpoolDetailDto result = carpoolUseCase.updateCarpoolByDriver(ACTIVITY_ID, CARPOOL_ID, USER_ID, dto);
 
         assertThat(result.id()).isEqualTo(CARPOOL_ID);
         verify(carpoolRepository).save(org.mockito.ArgumentMatchers.any(Carpool.class));
+        verify(notificationPort, org.mockito.Mockito.never())
+                .send(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(notificationRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void update_notifies_passengers_when_departure_time_changes() {
+        UUID passengerId = UUID.fromString("00000000-0000-0000-0000-000000000003");
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(offSiteFutureActivity()));
+        when(carpoolRepository.findById(CARPOOL_ID)).thenReturn(Optional.of(activeCarpool(USER_ID)));
+        when(carpoolPassengerRepository.countActive(CARPOOL_ID)).thenReturn(1);
+        when(carpoolRepository.save(org.mockito.ArgumentMatchers.any(Carpool.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        CarpoolPassenger passenger = CarpoolPassenger.builder()
+                .carpoolId(CARPOOL_ID).passengerId(passengerId).joinedAt(LocalDateTime.now(FIXED_CLOCK)).build();
+        when(carpoolPassengerRepository.findAllActivePassengersByCarpoolId(CARPOOL_ID))
+                .thenReturn(List.of(passenger));
+
+        User passengerUser = mock(User.class);
+        when(passengerUser.getFirstName()).thenReturn("Ana");
+        when(passengerUser.getEmail()).thenReturn("ana@test.fr");
+        when(userRepository.findById(passengerId)).thenReturn(Optional.of(passengerUser));
+
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(8, 30), 3, "Rue Test", null, "75000", "Paris");
+        carpoolUseCase.updateCarpoolByDriver(ACTIVITY_ID, CARPOOL_ID, USER_ID, dto);
+
+        verify(notificationPort).send(org.mockito.ArgumentMatchers.eq("ana@test.fr"),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(notificationRepository).save(org.mockito.ArgumentMatchers.argThat(n ->
+                n.getRecipientId().equals(passengerId) && n.getType() == NotificationType.CARPOOL_UPDATED));
     }
 
     @Test
@@ -354,7 +395,7 @@ class CarpoolUseCaseTest {
         when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(offSiteFutureActivity()));
         when(carpoolRepository.findById(CARPOOL_ID)).thenReturn(Optional.of(cancelled));
 
-        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3);
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 3, "Rue Test", null, "75000", "Paris");
         assertThatThrownBy(() -> carpoolUseCase.updateCarpoolByDriver(ACTIVITY_ID, CARPOOL_ID, USER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("actif");
@@ -366,7 +407,7 @@ class CarpoolUseCaseTest {
         when(carpoolRepository.findById(CARPOOL_ID)).thenReturn(Optional.of(activeCarpool(USER_ID)));
         when(carpoolPassengerRepository.countActive(CARPOOL_ID)).thenReturn(3);
 
-        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 2);
+        CarpoolRequestDto dto = new CarpoolRequestDto(LocalTime.of(9, 0), 2, "Rue Test", null, "75000", "Paris");
         assertThatThrownBy(() -> carpoolUseCase.updateCarpoolByDriver(ACTIVITY_ID, CARPOOL_ID, USER_ID, dto))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("passagers actuels");

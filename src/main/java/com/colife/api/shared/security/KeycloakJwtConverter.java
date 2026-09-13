@@ -1,10 +1,13 @@
 package com.colife.api.shared.security;
 
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
@@ -37,7 +40,7 @@ public class KeycloakJwtConverter implements Converter<Jwt, AbstractAuthenticati
 
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
-        UUID userId = UUID.fromString(jwt.getSubject());
+        UUID userId = parseSubject(jwt);
         String email = jwt.getClaimAsString("email");
 
         Set<String> realmRoles = extractRealmRoles(jwt);
@@ -52,6 +55,20 @@ public class KeycloakJwtConverter implements Converter<Jwt, AbstractAuthenticati
 
         JwtPrincipal principal = new JwtPrincipal(userId, email, role);
         return new UsernamePasswordAuthenticationToken(principal, jwt, authorities);
+    }
+
+    private UUID parseSubject(Jwt jwt) {
+        String sub = jwt.getSubject();
+        if (sub == null) {
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("invalid_token", "Token JWT invalide : claim 'sub' manquant", null));
+        }
+        try {
+            return UUID.fromString(sub);
+        } catch (IllegalArgumentException e) {
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("invalid_token", "Token JWT invalide : claim 'sub' n'est pas un UUID valide", null));
+        }
     }
 
     private Set<String> extractRealmRoles(Jwt jwt) {
@@ -78,7 +95,16 @@ public class KeycloakJwtConverter implements Converter<Jwt, AbstractAuthenticati
                     .lastName(claimOrDefault(jwt, "family_name", ""))
                     .role(role)
                     .build();
-            userRepository.save(user);
+            try {
+                userRepository.save(user);
+            } catch (DataIntegrityViolationException e) {
+                // Juste après une réinitialisation, le frontend déclenche plusieurs appels API
+                // en parallèle à la toute première connexion : chacun passe par ce convertisseur
+                // et voit "aucun utilisateur local" avant que le premier n'ait eu le temps de
+                // committer sa ligne. Un seul insert réussit, les autres violent la contrainte
+                // d'unicité sur l'id — ce n'est pas une vraie erreur, la ligne existe déjà avec
+                // les bonnes données (même JWT), donc on l'ignore silencieusement.
+            }
             return;
         }
         if (existing.get().getRole() != role) {

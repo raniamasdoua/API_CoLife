@@ -9,6 +9,7 @@ import com.colife.api.activity.application.dto.CreateActivityRequestDto;
 import com.colife.api.activity.application.dto.LocationDto;
 import com.colife.api.activity.application.dto.ParticipantDto;
 import com.colife.api.activity.application.dto.UpdateActivityRequestDto;
+import com.colife.api.activity.application.dto.UserActivitiesDto;
 import com.colife.api.activity.domain.Activity;
 import com.colife.api.activity.domain.ActivityCreationPolicy;
 import com.colife.api.activity.domain.ActivityRepositoryPort;
@@ -23,16 +24,27 @@ import com.colife.api.carpool.domain.Carpool;
 import com.colife.api.carpool.domain.CarpoolCreationPolicy;
 import com.colife.api.carpool.domain.CarpoolPassengerRepositoryPort;
 import com.colife.api.carpool.domain.CarpoolRepositoryPort;
+import com.colife.api.material.application.dto.MaterialRequestDto;
+import com.colife.api.material.application.dto.MaterialResponseDto;
+import com.colife.api.material.domain.MaterialProposal;
+import com.colife.api.material.domain.MaterialRepositoryPort;
+import com.colife.api.notification.domain.Notification;
+import com.colife.api.notification.domain.NotificationRepositoryPort;
+import com.colife.api.notification.domain.NotificationType;
 import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ConflictException;
 import com.colife.api.shared.exception.ForbiddenException;
 import com.colife.api.shared.exception.ResourceNotFoundException;
+import com.colife.api.shared.notification.NotificationPort;
 import com.colife.api.subscription.domain.SubscriptionRepositoryPort;
 import com.colife.api.user.domain.UserRepositoryPort;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,12 +54,18 @@ import java.util.UUID;
 @Service
 public class ActivityUseCase {
 
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+
     private final ActivityRepositoryPort activityRepository;
     private final ActivityTypeRepositoryPort activityTypeRepository;
     private final UserRepositoryPort userRepository;
     private final SubscriptionRepositoryPort subscriptionRepository;
     private final CarpoolRepositoryPort carpoolRepository;
     private final CarpoolPassengerRepositoryPort carpoolPassengerRepository;
+    private final MaterialRepositoryPort materialRepository;
+    private final NotificationPort notificationPort;
+    private final NotificationRepositoryPort notificationRepository;
     private final Clock clock;
 
     public ActivityUseCase(
@@ -57,6 +75,9 @@ public class ActivityUseCase {
             SubscriptionRepositoryPort subscriptionRepository,
             CarpoolRepositoryPort carpoolRepository,
             CarpoolPassengerRepositoryPort carpoolPassengerRepository,
+            MaterialRepositoryPort materialRepository,
+            NotificationPort notificationPort,
+            NotificationRepositoryPort notificationRepository,
             Clock clock) {
         this.activityRepository = activityRepository;
         this.activityTypeRepository = activityTypeRepository;
@@ -64,6 +85,9 @@ public class ActivityUseCase {
         this.subscriptionRepository = subscriptionRepository;
         this.carpoolRepository = carpoolRepository;
         this.carpoolPassengerRepository = carpoolPassengerRepository;
+        this.materialRepository = materialRepository;
+        this.notificationPort = notificationPort;
+        this.notificationRepository = notificationRepository;
         this.clock = clock;
     }
 
@@ -125,16 +149,34 @@ public class ActivityUseCase {
                     .driverId(organizerId)
                     .departureTime(dto.carpool().departureTime())
                     .maxPassengers(dto.carpool().maxPassengers())
+                    .departureStreet(dto.carpool().departureStreet())
+                    .departureComplement(dto.carpool().departureComplement())
+                    .departurePostalCode(dto.carpool().departurePostalCode())
+                    .departureCity(dto.carpool().departureCity())
                     .build();
             Carpool savedCarpool = carpoolRepository.save(carpool);
             carpoolResponse = toCarpoolResponse(savedCarpool);
+        }
+
+        if (dto.materials() != null) {
+            for (MaterialRequestDto materialDto : dto.materials()) {
+                MaterialProposal proposal = MaterialProposal.builder()
+                        .activityId(saved.getId())
+                        .proposedBy(organizerId)
+                        .description(materialDto.description())
+                        .quantity(materialDto.quantity())
+                        .createdAt(LocalDateTime.now(clock))
+                        .build();
+                materialRepository.save(proposal);
+            }
         }
 
         String organizerName = userRepository.findById(organizerId)
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .orElse("Inconnu");
         int participantCount = subscriptionRepository.countParticipants(saved.getId());
-        return toResponse(saved, activityType, organizerName, participantCount, carpoolResponse);
+        List<MaterialResponseDto> materials = getEmbeddedMaterials(saved.getId());
+        return toResponse(saved, activityType, organizerName, participantCount, carpoolResponse, materials);
     }
 
     private void validateLocation(LocationType locationType, LocationDto location) {
@@ -172,7 +214,11 @@ public class ActivityUseCase {
                 carpool.getActivityId(),
                 carpool.getDriverId(),
                 carpool.getDepartureTime(),
-                carpool.getMaxPassengers()
+                carpool.getMaxPassengers(),
+                carpool.getDepartureStreet(),
+                carpool.getDepartureComplement(),
+                carpool.getDeparturePostalCode(),
+                carpool.getDepartureCity()
         );
     }
 
@@ -228,16 +274,38 @@ public class ActivityUseCase {
                 : (activity.getLocationType() != null ? activity.getLocationType() : LocationType.OFF_SITE);
         validateLocation(locationType, dto.location());
 
-        // Si l'activité passe de hors-site à sur-site, annuler tous les covoiturages actifs
+        boolean scheduleChanged = !activity.getDate().isEqual(dto.date())
+                || !activity.getStartTime().equals(dto.startTime())
+                || !activity.getEndTime().equals(dto.endTime());
+
+        // Si l'activité passe de hors-site à sur-site, tous les covoiturages actifs deviennent caducs.
+        // Sinon, si seul l'horaire change, seuls les covoiturages dont le départ n'est plus avant
+        // le nouveau début d'activité deviennent incompatibles (cf. CarpoolCreationPolicy).
         boolean switchingToOnSite = locationType == LocationType.ON_SITE
                 && activity.getLocationType() != LocationType.ON_SITE;
+
+        List<Carpool> carpoolsToCancel = List.of();
         if (switchingToOnSite) {
-            List<Carpool> activeCarpools = carpoolRepository.findAllActiveByActivityId(activityId);
-            if (!activeCarpools.isEmpty()) {
-                List<Long> carpoolIds = activeCarpools.stream().map(Carpool::getId).toList();
-                carpoolPassengerRepository.removeAllByCarpoolIds(carpoolIds);
-                carpoolRepository.cancelAllByActivityId(activityId);
+            carpoolsToCancel = carpoolRepository.findAllActiveByActivityId(activityId);
+        } else if (scheduleChanged) {
+            carpoolsToCancel = carpoolRepository.findAllActiveByActivityId(activityId).stream()
+                    .filter(c -> !c.getDepartureTime().isBefore(dto.startTime()))
+                    .toList();
+        }
+
+        if (!carpoolsToCancel.isEmpty()) {
+            for (Carpool carpool : carpoolsToCancel) {
+                String reason = switchingToOnSite
+                        ? "L'organisateur de l'activité \"" + activity.getTitle() + "\" l'a repositionnée en sur-site, "
+                            + "le covoiturage n'est donc plus disponible pour cette activité."
+                        : "L'organisateur de l'activité \"" + activity.getTitle() + "\" a modifié son horaire : "
+                            + "le nouveau créneau commence à " + dto.startTime().format(TIME_FORMAT) + ", ce qui n'est plus "
+                            + "compatible avec le départ prévu à " + carpool.getDepartureTime().format(TIME_FORMAT) + ".";
+                notifyCarpoolCancelled(activity, carpool, reason);
             }
+            List<Long> carpoolIds = carpoolsToCancel.stream().map(Carpool::getId).toList();
+            carpoolPassengerRepository.removeAllByCarpoolIds(carpoolIds);
+            carpoolRepository.cancelByIds(carpoolIds);
         }
 
         Location location = buildLocation(locationType, dto.location());
@@ -259,6 +327,10 @@ public class ActivityUseCase {
 
         Activity saved = activityRepository.update(updated);
 
+        if (scheduleChanged && !participantOnlyIds.isEmpty()) {
+            notifyScheduleChanged(saved, participantOnlyIds);
+        }
+
         String organizerName = userRepository.findById(activity.getOrganizerId())
                 .map(u -> u.getFirstName() + " " + u.getLastName())
                 .orElse("Inconnu");
@@ -266,7 +338,89 @@ public class ActivityUseCase {
         CarpoolResponseDto carpoolResponse = carpoolRepository.findByActivityId(saved.getId())
                 .map(this::toCarpoolResponse)
                 .orElse(null);
-        return toResponse(saved, activityType, organizerName, updatedParticipantCount, carpoolResponse);
+        return toResponse(saved, activityType, organizerName, updatedParticipantCount, carpoolResponse,
+                getEmbeddedMaterials(saved.getId()));
+    }
+
+    private void notifyScheduleChanged(Activity activity, List<UUID> participantIds) {
+        String newSlot = activity.getDate().format(DATE_FORMAT) + " de " + activity.getStartTime().format(TIME_FORMAT)
+                + " à " + activity.getEndTime().format(TIME_FORMAT);
+        String subject = "Changement d'horaire : " + activity.getTitle();
+
+        String inAppMessage = "Le nouveau créneau de \"" + activity.getTitle() + "\" est : " + newSlot + ".";
+
+        for (UUID participantId : participantIds) {
+            userRepository.findById(participantId).ifPresent(user -> {
+                String body = "Bonjour " + user.getFirstName() + ",\n\n"
+                        + "L'horaire de l'activité \"" + activity.getTitle() + "\" a été modifié.\n\n"
+                        + "Nouveau créneau : " + newSlot + "\n\n"
+                        + "Si ce nouveau créneau ne vous convient pas, vous pouvez vous désinscrire depuis l'application.\n\n"
+                        + "L'équipe CoLife";
+                notificationPort.send(user.getEmail(), subject, body);
+            });
+            saveNotification(participantId, NotificationType.ACTIVITY_UPDATED, subject, inAppMessage, activity.getId());
+        }
+    }
+
+    private void notifyCarpoolCancelled(Activity activity, Carpool carpool, String reason) {
+        String subject = "Covoiturage annulé : " + activity.getTitle();
+
+        List<UUID> recipientIds = new ArrayList<>();
+        recipientIds.add(carpool.getDriverId());
+        carpoolPassengerRepository.findAllActivePassengersByCarpoolId(carpool.getId())
+                .forEach(passenger -> recipientIds.add(passenger.getPassengerId()));
+
+        for (UUID recipientId : recipientIds) {
+            userRepository.findById(recipientId).ifPresent(user -> {
+                String body = "Bonjour " + user.getFirstName() + ",\n\n"
+                        + reason + "\n\n"
+                        + "Ce covoiturage a donc été annulé automatiquement. Vous pouvez en proposer un nouveau "
+                        + "ou rejoindre une autre proposition depuis l'application.\n\n"
+                        + "L'équipe CoLife";
+                notificationPort.send(user.getEmail(), subject, body);
+            });
+            saveNotification(recipientId, NotificationType.CARPOOL_CANCELLED, subject, reason, activity.getId());
+        }
+    }
+
+    /**
+     * Prévient l'organisateur qu'un nouveau participant vient de s'inscrire. Si cette
+     * inscription amène l'activité à sa capacité maximale, une seule notification
+     * combinée est envoyée (plutôt qu'une "nouvel inscrit" suivie d'une "complète").
+     */
+    private void notifyOrganizerOfNewSubscriber(Activity activity, UUID subscriberId, boolean activityNowFull) {
+        String subscriberName = userRepository.findById(subscriberId)
+                .map(u -> u.getFirstName() + " " + u.getLastName())
+                .orElse("Un collaborateur");
+
+        NotificationType type = activityNowFull ? NotificationType.ACTIVITY_FULL : NotificationType.NEW_SUBSCRIBER;
+        String subject = activityNowFull
+                ? "Activité complète : " + activity.getTitle()
+                : "Nouvelle inscription : " + activity.getTitle();
+        String reason = activityNowFull
+                ? subscriberName + " s'est inscrit(e) à votre activité \"" + activity.getTitle()
+                        + "\", qui est maintenant complète."
+                : subscriberName + " s'est inscrit(e) à votre activité \"" + activity.getTitle() + "\".";
+
+        UUID organizerId = activity.getOrganizerId();
+        userRepository.findById(organizerId).ifPresent(organizer -> {
+            String body = "Bonjour " + organizer.getFirstName() + ",\n\n" + reason + "\n\nL'équipe CoLife";
+            notificationPort.send(organizer.getEmail(), subject, body);
+        });
+        saveNotification(organizerId, type, subject, reason, activity.getId());
+    }
+
+    private void saveNotification(UUID recipientId, NotificationType type, String title, String message, Long activityId) {
+        Notification notification = Notification.builder()
+                .recipientId(recipientId)
+                .type(type)
+                .title(title)
+                .message(message)
+                .activityId(activityId)
+                .read(false)
+                .createdAt(LocalDateTime.now(clock))
+                .build();
+        notificationRepository.save(notification);
     }
 
     @Transactional
@@ -292,8 +446,32 @@ public class ActivityUseCase {
             carpoolRepository.cancelAllByActivityId(activityId);
         }
 
+        List<UUID> participantOnlyIds = subscriptionRepository.findUserIdsByActivityId(activityId).stream()
+                .filter(id -> !id.equals(activity.getOrganizerId()))
+                .toList();
+        if (!participantOnlyIds.isEmpty()) {
+            notifyActivityCancelled(activity, participantOnlyIds);
+        }
+
         subscriptionRepository.deleteAllByActivityId(activityId);
+        materialRepository.softDeleteAllByActivityId(activityId);
         activityRepository.softDelete(activityId);
+    }
+
+    private void notifyActivityCancelled(Activity activity, List<UUID> participantIds) {
+        String subject = "Activité annulée : " + activity.getTitle();
+        String reason = "L'organisateur a annulé l'activité \"" + activity.getTitle() + "\" prévue le "
+                + activity.getDate().format(DATE_FORMAT) + " à " + activity.getStartTime().format(TIME_FORMAT) + ".";
+
+        for (UUID participantId : participantIds) {
+            userRepository.findById(participantId).ifPresent(user -> {
+                String body = "Bonjour " + user.getFirstName() + ",\n\n"
+                        + reason + "\n\n"
+                        + "L'équipe CoLife";
+                notificationPort.send(user.getEmail(), subject, body);
+            });
+            saveNotification(participantId, NotificationType.ACTIVITY_CANCELLED, subject, reason, activity.getId());
+        }
     }
 
     @Transactional(readOnly = true)
@@ -327,6 +505,11 @@ public class ActivityUseCase {
     public List<ActivityResponseDto> getRegisteredActivities(UUID userId) {
         List<Activity> activities = activityRepository.findSubscribedAsNonOrganizer(userId);
         return toResponseList(activities);
+    }
+
+    @Transactional(readOnly = true)
+    public UserActivitiesDto getUserActivities(UUID userId) {
+        return new UserActivitiesDto(getMyActivities(userId), getRegisteredActivities(userId));
     }
 
     @Transactional(readOnly = true)
@@ -391,6 +574,9 @@ public class ActivityUseCase {
 
         subscriptionRepository.registerParticipant(activityId, userId);
 
+        boolean activityNowFull = (participantCount + 1) == activity.getCapacity();
+        notifyOrganizerOfNewSubscriber(activity, userId, activityNowFull);
+
         ActivityType type = activityTypeRepository.findByIdIncludingDeleted(activity.getTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));
         String organizerName = userRepository.findById(activity.getOrganizerId())
@@ -400,7 +586,8 @@ public class ActivityUseCase {
         CarpoolResponseDto carpoolResponse = carpoolRepository.findByActivityId(activityId)
                 .map(this::toCarpoolResponse)
                 .orElse(null);
-        return toResponse(activity, type, organizerName, updatedParticipantCount, carpoolResponse);
+        return toResponse(activity, type, organizerName, updatedParticipantCount, carpoolResponse,
+                getEmbeddedMaterials(activityId));
     }
 
     @Transactional
@@ -450,7 +637,8 @@ public class ActivityUseCase {
         CarpoolResponseDto carpoolResponse = carpoolRepository.findByActivityId(activityId)
                 .map(this::toCarpoolResponse)
                 .orElse(null);
-        return toResponse(activity, type, organizerName, updatedParticipantCount, carpoolResponse);
+        return toResponse(activity, type, organizerName, updatedParticipantCount, carpoolResponse,
+                getEmbeddedMaterials(activityId));
     }
 
     private List<ActivityResponseDto> toResponseList(List<Activity> activities) {
@@ -473,13 +661,39 @@ public class ActivityUseCase {
                     CarpoolResponseDto carpoolResponse = carpoolRepository.findByActivityId(activity.getId())
                             .map(this::toCarpoolResponse)
                             .orElse(null);
-                    return toResponse(activity, type, organizerName, participantCount, carpoolResponse);
+                    return toResponse(activity, type, organizerName, participantCount, carpoolResponse,
+                            getEmbeddedMaterials(activity.getId()));
+                })
+                .toList();
+    }
+
+    /**
+     * Matériel proposé pour une activité, tel qu'embarqué dans sa réponse (lecture seule,
+     * sans notion de "proposition à moi" — cette information n'est disponible que via
+     * l'endpoint dédié {@code GET /activities/{id}/materials}, seul point d'entrée interactif).
+     */
+    private List<MaterialResponseDto> getEmbeddedMaterials(Long activityId) {
+        return materialRepository.findAllByActivityId(activityId).stream()
+                .map(proposal -> {
+                    String proposedByName = userRepository.findById(proposal.getProposedBy())
+                            .map(u -> u.getFirstName() + " " + u.getLastName())
+                            .orElse("Inconnu");
+                    return new MaterialResponseDto(
+                            proposal.getId(),
+                            proposal.getActivityId(),
+                            proposedByName,
+                            false,
+                            proposal.getDescription(),
+                            proposal.getQuantity(),
+                            proposal.getCreatedAt()
+                    );
                 })
                 .toList();
     }
 
     private ActivityResponseDto toResponse(Activity activity, ActivityType type, String organizerName,
-                                            int participantCount, CarpoolResponseDto carpool) {
+                                            int participantCount, CarpoolResponseDto carpool,
+                                            List<MaterialResponseDto> materials) {
         LocationDto locationDto = new LocationDto(
                 activity.getLocation().getRoom(),
                 activity.getLocation().getStreet(),
@@ -505,7 +719,8 @@ public class ActivityUseCase {
                 organizerName,
                 activity.isDeleted(),
                 locationType,
-                carpool
+                carpool,
+                materials
         );
     }
 }
