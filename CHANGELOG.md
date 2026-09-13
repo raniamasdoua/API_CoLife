@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.5.0 - 2026-09-13
+
+### 🚀 Features
+- feat(notifications) : prevenir l'organisateur d'une nouvelle inscription
+- feat(covoiturage) : lieu de depart et notification de changement d'horaire
+- feat(notifications) : notifier en base les participants lors d'un changement ou d'une annulation
+- feat(materiel) : permettre de proposer, modifier et retirer du matériel pour une activité
+- feat(admin) : exposer les activités organisées et suivies par un utilisateur
+- feat(covoiturage) : annuler et notifier les covoiturages incompatibles lors d'un changement d'horaire
+- feat(actuator) : exposer les endpoints de supervision (health, metrics, info)
+
+### 🐛 Fixes
+- fix(materiel) : supprimer en cascade (soft delete) le matériel orphelin
+- fix(keycloak) : corriger l'accès à la console de gestion de compte
+- fix(activite) : rendre le fuseau horaire du serveur indépendant de l'infrastructure
+- fix(auth) : rejeter proprement un JWT sans claim 'sub' valide
+
+---
+
 ## v0.4.0 - 2026-07-23
 
 ### 🚀 Features
