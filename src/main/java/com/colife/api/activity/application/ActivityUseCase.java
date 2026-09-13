@@ -383,6 +383,33 @@ public class ActivityUseCase {
         }
     }
 
+    /**
+     * Prévient l'organisateur qu'un nouveau participant vient de s'inscrire. Si cette
+     * inscription amène l'activité à sa capacité maximale, une seule notification
+     * combinée est envoyée (plutôt qu'une "nouvel inscrit" suivie d'une "complète").
+     */
+    private void notifyOrganizerOfNewSubscriber(Activity activity, UUID subscriberId, boolean activityNowFull) {
+        String subscriberName = userRepository.findById(subscriberId)
+                .map(u -> u.getFirstName() + " " + u.getLastName())
+                .orElse("Un collaborateur");
+
+        NotificationType type = activityNowFull ? NotificationType.ACTIVITY_FULL : NotificationType.NEW_SUBSCRIBER;
+        String subject = activityNowFull
+                ? "Activité complète : " + activity.getTitle()
+                : "Nouvelle inscription : " + activity.getTitle();
+        String reason = activityNowFull
+                ? subscriberName + " s'est inscrit(e) à votre activité \"" + activity.getTitle()
+                        + "\", qui est maintenant complète."
+                : subscriberName + " s'est inscrit(e) à votre activité \"" + activity.getTitle() + "\".";
+
+        UUID organizerId = activity.getOrganizerId();
+        userRepository.findById(organizerId).ifPresent(organizer -> {
+            String body = "Bonjour " + organizer.getFirstName() + ",\n\n" + reason + "\n\nL'équipe CoLife";
+            notificationPort.send(organizer.getEmail(), subject, body);
+        });
+        saveNotification(organizerId, type, subject, reason, activity.getId());
+    }
+
     private void saveNotification(UUID recipientId, NotificationType type, String title, String message, Long activityId) {
         Notification notification = Notification.builder()
                 .recipientId(recipientId)
@@ -546,6 +573,9 @@ public class ActivityUseCase {
         }
 
         subscriptionRepository.registerParticipant(activityId, userId);
+
+        boolean activityNowFull = (participantCount + 1) == activity.getCapacity();
+        notifyOrganizerOfNewSubscriber(activity, userId, activityNowFull);
 
         ActivityType type = activityTypeRepository.findByIdIncludingDeleted(activity.getTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Type d'activité non trouvé"));

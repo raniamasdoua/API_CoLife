@@ -719,6 +719,45 @@ class ActivityUseCaseTest {
                 .hasMessageContaining("conflit");
     }
 
+    @Test
+    void subscribe_notifies_organizer_of_new_subscriber_when_activity_not_full() {
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant()));
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, PARTICIPANT_ID)).thenReturn(false);
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(3);
+        when(activityRepository.existsOverlappingForUsersAsOrganizer(anyList(), any(), any(), any(), anyLong())).thenReturn(false);
+        when(subscriptionRepository.existsConflictingActivityForSubscribedUsers(anyList(), any(), any(), any(), anyLong())).thenReturn(false);
+        when(activityTypeRepository.findByIdIncludingDeleted(TYPE_ID)).thenReturn(Optional.of(sampleType()));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(organizer()));
+        when(carpoolRepository.findByActivityId(ACTIVITY_ID)).thenReturn(Optional.empty());
+
+        activityUseCase.subscribe(PARTICIPANT_ID, ACTIVITY_ID);
+
+        verify(notificationPort).send(eq("jean@test.com"), any(String.class), any(String.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(ORGANIZER_ID) && n.getType() == NotificationType.NEW_SUBSCRIBER));
+    }
+
+    @Test
+    void subscribe_sends_a_single_combined_notification_when_it_fills_the_last_spot() {
+        when(userRepository.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant()));
+        when(activityRepository.findById(ACTIVITY_ID)).thenReturn(Optional.of(futureActivity()));
+        when(subscriptionRepository.existsByActivityIdAndUserId(ACTIVITY_ID, PARTICIPANT_ID)).thenReturn(false);
+        when(subscriptionRepository.countParticipants(ACTIVITY_ID)).thenReturn(9); // capacité 10 : 9 + 1 = complet
+        when(activityRepository.existsOverlappingForUsersAsOrganizer(anyList(), any(), any(), any(), anyLong())).thenReturn(false);
+        when(subscriptionRepository.existsConflictingActivityForSubscribedUsers(anyList(), any(), any(), any(), anyLong())).thenReturn(false);
+        when(activityTypeRepository.findByIdIncludingDeleted(TYPE_ID)).thenReturn(Optional.of(sampleType()));
+        when(userRepository.findById(ORGANIZER_ID)).thenReturn(Optional.of(organizer()));
+        when(carpoolRepository.findByActivityId(ACTIVITY_ID)).thenReturn(Optional.empty());
+
+        activityUseCase.subscribe(PARTICIPANT_ID, ACTIVITY_ID);
+
+        verify(notificationPort, times(1)).send(any(String.class), any(String.class), any(String.class));
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipientId().equals(ORGANIZER_ID) && n.getType() == NotificationType.ACTIVITY_FULL));
+    }
+
     // ─── Tests : getParticipants ─────────────────────────────────────────────
 
     @Test
