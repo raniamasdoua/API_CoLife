@@ -149,6 +149,10 @@ public class ActivityUseCase {
                     .driverId(organizerId)
                     .departureTime(dto.carpool().departureTime())
                     .maxPassengers(dto.carpool().maxPassengers())
+                    .departureStreet(dto.carpool().departureStreet())
+                    .departureComplement(dto.carpool().departureComplement())
+                    .departurePostalCode(dto.carpool().departurePostalCode())
+                    .departureCity(dto.carpool().departureCity())
                     .build();
             Carpool savedCarpool = carpoolRepository.save(carpool);
             carpoolResponse = toCarpoolResponse(savedCarpool);
@@ -210,7 +214,11 @@ public class ActivityUseCase {
                 carpool.getActivityId(),
                 carpool.getDriverId(),
                 carpool.getDepartureTime(),
-                carpool.getMaxPassengers()
+                carpool.getMaxPassengers(),
+                carpool.getDepartureStreet(),
+                carpool.getDepartureComplement(),
+                carpool.getDeparturePostalCode(),
+                carpool.getDepartureCity()
         );
     }
 
@@ -419,6 +427,7 @@ public class ActivityUseCase {
         }
 
         subscriptionRepository.deleteAllByActivityId(activityId);
+        materialRepository.softDeleteAllByActivityId(activityId);
         activityRepository.softDelete(activityId);
     }
 

@@ -68,6 +68,7 @@ public class MaterialUseCase {
                 .description(dto.description())
                 .quantity(dto.quantity())
                 .createdAt(LocalDateTime.now(clock))
+                .deleted(false)
                 .build();
 
         MaterialProposal saved = materialRepository.save(proposal);
@@ -96,6 +97,7 @@ public class MaterialUseCase {
                 .description(dto.description())
                 .quantity(dto.quantity())
                 .createdAt(existing.getCreatedAt())
+                .deleted(existing.isDeleted())
                 .build();
 
         MaterialProposal saved = materialRepository.save(updated);

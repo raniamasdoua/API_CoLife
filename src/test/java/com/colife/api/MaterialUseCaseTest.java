@@ -102,6 +102,7 @@ class MaterialUseCaseTest {
                 .id(MATERIAL_ID).activityId(ACTIVITY_ID).proposedBy(proposedBy)
                 .description("Ballon de foot").quantity(1)
                 .createdAt(LocalDateTime.of(2026, Month.MARCH, 15, 10, 0))
+                .deleted(false)
                 .build();
     }
 

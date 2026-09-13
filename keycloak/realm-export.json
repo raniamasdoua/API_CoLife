@@ -1690,8 +1690,11 @@
       }
     ]
   },
-  "internationalizationEnabled": false,
-  "supportedLocales": [],
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "fr"
+  ],
+  "defaultLocale": "fr",
   "authenticationFlows": [
     {
       "id": "318ef629-84a4-4923-80b4-2558dbdaf38d",
@@ -2448,6 +2451,8 @@
       "email": "admin@entreprise.com",
       "emailVerified": true,
       "enabled": true,
+      "firstName": "Admin",
+      "lastName": "CoLife",
       "credentials": [
         {
           "type": "password",

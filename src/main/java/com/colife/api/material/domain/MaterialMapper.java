@@ -15,6 +15,7 @@ public final class MaterialMapper {
                 .description(entity.getDescription())
                 .quantity(entity.getQuantity())
                 .createdAt(entity.getCreatedAt())
+                .deleted(entity.isDeleted())
                 .build();
     }
 
@@ -26,6 +27,7 @@ public final class MaterialMapper {
         entity.setDescription(proposal.getDescription());
         entity.setQuantity(proposal.getQuantity());
         entity.setCreatedAt(proposal.getCreatedAt());
+        entity.setDeleted(proposal.isDeleted());
         return entity;
     }
 }

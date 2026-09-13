@@ -15,4 +15,8 @@ public class Carpool {
     private LocalTime departureTime;
     private int maxPassengers;
     private CarpoolStatus status;
+    private String departureStreet;
+    private String departureComplement;
+    private String departurePostalCode;
+    private String departureCity;
 }

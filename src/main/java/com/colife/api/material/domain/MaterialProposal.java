@@ -15,4 +15,5 @@ public class MaterialProposal {
     private String description;
     private int quantity;
     private LocalDateTime createdAt;
+    private boolean deleted;
 }

@@ -17,8 +17,12 @@ import com.colife.api.carpool.domain.CarpoolPassenger;
 import com.colife.api.carpool.domain.CarpoolPassengerRepositoryPort;
 import com.colife.api.carpool.domain.CarpoolRepositoryPort;
 import com.colife.api.carpool.domain.CarpoolStatus;
+import com.colife.api.notification.domain.Notification;
+import com.colife.api.notification.domain.NotificationRepositoryPort;
+import com.colife.api.notification.domain.NotificationType;
 import com.colife.api.shared.exception.BusinessException;
 import com.colife.api.shared.exception.ResourceNotFoundException;
+import com.colife.api.shared.notification.NotificationPort;
 import com.colife.api.subscription.domain.SubscriptionRepositoryPort;
 import com.colife.api.user.domain.UserRepositoryPort;
 
@@ -26,17 +30,22 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class CarpoolUseCase {
 
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+
     private final CarpoolRepositoryPort carpoolRepository;
     private final CarpoolPassengerRepositoryPort carpoolPassengerRepository;
     private final ActivityRepositoryPort activityRepository;
     private final SubscriptionRepositoryPort subscriptionRepository;
     private final UserRepositoryPort userRepository;
+    private final NotificationPort notificationPort;
+    private final NotificationRepositoryPort notificationRepository;
     private final Clock clock;
 
     public CarpoolUseCase(
@@ -45,12 +54,16 @@ public class CarpoolUseCase {
             ActivityRepositoryPort activityRepository,
             SubscriptionRepositoryPort subscriptionRepository,
             UserRepositoryPort userRepository,
+            NotificationPort notificationPort,
+            NotificationRepositoryPort notificationRepository,
             Clock clock) {
         this.carpoolRepository = carpoolRepository;
         this.carpoolPassengerRepository = carpoolPassengerRepository;
         this.activityRepository = activityRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.userRepository = userRepository;
+        this.notificationPort = notificationPort;
+        this.notificationRepository = notificationRepository;
         this.clock = clock;
     }
 
@@ -117,6 +130,10 @@ public class CarpoolUseCase {
                 .departureTime(dto.departureTime())
                 .maxPassengers(dto.maxPassengers())
                 .status(CarpoolStatus.ACTIVE)
+                .departureStreet(dto.departureStreet())
+                .departureComplement(dto.departureComplement())
+                .departurePostalCode(dto.departurePostalCode())
+                .departureCity(dto.departureCity())
                 .build();
 
         Carpool saved = carpoolRepository.save(carpool);
@@ -152,6 +169,8 @@ public class CarpoolUseCase {
                     "Le nombre de places ne peut pas être inférieur au nombre de passagers actuels (" + currentPassengerCount + ")");
         }
 
+        boolean departureTimeChanged = !carpool.getDepartureTime().equals(dto.departureTime());
+
         Carpool updated = Carpool.builder()
                 .id(carpool.getId())
                 .activityId(carpool.getActivityId())
@@ -159,10 +178,49 @@ public class CarpoolUseCase {
                 .departureTime(dto.departureTime())
                 .maxPassengers(dto.maxPassengers())
                 .status(carpool.getStatus())
+                .departureStreet(dto.departureStreet())
+                .departureComplement(dto.departureComplement())
+                .departurePostalCode(dto.departurePostalCode())
+                .departureCity(dto.departureCity())
                 .build();
 
         Carpool saved = carpoolRepository.save(updated);
+
+        if (departureTimeChanged) {
+            notifyDepartureTimeChanged(activity, saved);
+        }
+
         return toDetail(saved);
+    }
+
+    private void notifyDepartureTimeChanged(Activity activity, Carpool carpool) {
+        List<CarpoolPassenger> passengers =
+                carpoolPassengerRepository.findAllActivePassengersByCarpoolId(carpool.getId());
+        if (passengers.isEmpty()) {
+            return;
+        }
+
+        String subject = "Changement d'horaire de covoiturage : " + activity.getTitle();
+        String reason = "Le conducteur a modifié l'heure de départ du covoiturage pour l'activité \""
+                + activity.getTitle() + "\" : nouveau départ à " + carpool.getDepartureTime().format(TIME_FORMAT) + ".";
+
+        for (CarpoolPassenger passenger : passengers) {
+            UUID recipientId = passenger.getPassengerId();
+            userRepository.findById(recipientId).ifPresent(user -> {
+                String body = "Bonjour " + user.getFirstName() + ",\n\n" + reason + "\n\nL'équipe CoLife";
+                notificationPort.send(user.getEmail(), subject, body);
+            });
+            Notification notification = Notification.builder()
+                    .recipientId(recipientId)
+                    .type(NotificationType.CARPOOL_UPDATED)
+                    .title(subject)
+                    .message(reason)
+                    .activityId(activity.getId())
+                    .read(false)
+                    .createdAt(LocalDateTime.now(clock))
+                    .build();
+            notificationRepository.save(notification);
+        }
     }
 
     /* ──────────────────────────── Cancel ─────────────────────────────────── */
@@ -314,7 +372,11 @@ public class CarpoolUseCase {
                 passengerCount,
                 availableSeats,
                 carpool.getStatus(),
-                passengerSummaries
+                passengerSummaries,
+                carpool.getDepartureStreet(),
+                carpool.getDepartureComplement(),
+                carpool.getDeparturePostalCode(),
+                carpool.getDepartureCity()
         );
     }
 }

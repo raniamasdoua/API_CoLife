@@ -17,7 +17,7 @@ public interface NotificationJpaRepository extends JpaRepository<NotificationEnt
 
     long countByRecipientIdAndReadFalse(UUID recipientId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update NotificationEntity n set n.read = true where n.recipientId = :recipientId and n.read = false")
     void markAllAsReadByRecipientId(@Param("recipientId") UUID recipientId);
 }
