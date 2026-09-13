@@ -15,6 +15,10 @@ public final class CarpoolMapper {
                 .departureTime(entity.getDepartureTime())
                 .maxPassengers(entity.getMaxPassengers())
                 .status(entity.getStatus() != null ? entity.getStatus() : CarpoolStatus.ACTIVE)
+                .departureStreet(entity.getDepartureStreet())
+                .departureComplement(entity.getDepartureComplement())
+                .departurePostalCode(entity.getDeparturePostalCode())
+                .departureCity(entity.getDepartureCity())
                 .build();
     }
 
@@ -26,6 +30,10 @@ public final class CarpoolMapper {
         entity.setDepartureTime(carpool.getDepartureTime());
         entity.setMaxPassengers(carpool.getMaxPassengers());
         entity.setStatus(carpool.getStatus() != null ? carpool.getStatus() : CarpoolStatus.ACTIVE);
+        entity.setDepartureStreet(carpool.getDepartureStreet());
+        entity.setDepartureComplement(carpool.getDepartureComplement());
+        entity.setDeparturePostalCode(carpool.getDeparturePostalCode());
+        entity.setDepartureCity(carpool.getDepartureCity());
         return entity;
     }
 }

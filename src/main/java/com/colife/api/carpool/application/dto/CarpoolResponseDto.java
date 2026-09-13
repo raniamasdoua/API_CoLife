@@ -8,6 +8,10 @@ public record CarpoolResponseDto(
         Long activityId,
         UUID driverId,
         LocalTime departureTime,
-        int maxPassengers
+        int maxPassengers,
+        String departureStreet,
+        String departureComplement,
+        String departurePostalCode,
+        String departureCity
 ) {
 }

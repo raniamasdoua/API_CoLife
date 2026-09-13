@@ -35,4 +35,15 @@ public class CarpoolEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CarpoolStatus status = CarpoolStatus.ACTIVE;
+
+    @Column(nullable = false)
+    private String departureStreet;
+
+    private String departureComplement;
+
+    @Column(nullable = false)
+    private String departurePostalCode;
+
+    @Column(nullable = false)
+    private String departureCity;
 }

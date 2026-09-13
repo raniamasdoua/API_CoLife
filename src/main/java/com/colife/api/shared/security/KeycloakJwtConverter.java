@@ -1,6 +1,7 @@
 package com.colife.api.shared.security;
 
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -94,7 +95,16 @@ public class KeycloakJwtConverter implements Converter<Jwt, AbstractAuthenticati
                     .lastName(claimOrDefault(jwt, "family_name", ""))
                     .role(role)
                     .build();
-            userRepository.save(user);
+            try {
+                userRepository.save(user);
+            } catch (DataIntegrityViolationException e) {
+                // Juste après une réinitialisation, le frontend déclenche plusieurs appels API
+                // en parallèle à la toute première connexion : chacun passe par ce convertisseur
+                // et voit "aucun utilisateur local" avant que le premier n'ait eu le temps de
+                // committer sa ligne. Un seul insert réussit, les autres violent la contrainte
+                // d'unicité sur l'id — ce n'est pas une vraie erreur, la ligne existe déjà avec
+                // les bonnes données (même JWT), donc on l'ignore silencieusement.
+            }
             return;
         }
         if (existing.get().getRole() != role) {

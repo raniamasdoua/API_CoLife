@@ -976,7 +976,7 @@ class ActivityUseCaseTest {
         when(activityTypeRepository.findActiveById(2L)).thenReturn(Optional.of(
                 ActivityType.builder().id(2L).name("X").build()));
         LocationDto onSite = new LocationDto("Salle A", null, null, null, null);
-        CarpoolRequestDto carpoolDto = new CarpoolRequestDto(LocalTime.of(8, 0), 3);
+        CarpoolRequestDto carpoolDto = new CarpoolRequestDto(LocalTime.of(8, 0), 3, "Rue Test", null, "75000", "Paris");
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
@@ -1004,7 +1004,7 @@ class ActivityUseCaseTest {
                 .id(5L).activityId(ACTIVITY_ID).driverId(ORGANIZER_ID)
                 .departureTime(LocalTime.of(8, 0)).maxPassengers(3).build();
         when(carpoolRepository.save(any(Carpool.class))).thenReturn(savedCarpool);
-        CarpoolRequestDto carpoolDto = new CarpoolRequestDto(LocalTime.of(8, 0), 3);
+        CarpoolRequestDto carpoolDto = new CarpoolRequestDto(LocalTime.of(8, 0), 3, "Rue Test", null, "75000", "Paris");
         CreateActivityRequestDto dto = new CreateActivityRequestDto("T", null, 2L,
                 LocalDate.of(2026, Month.MARCH, 30),
                 LocalTime.of(10, 0), LocalTime.of(11, 0), 5,
