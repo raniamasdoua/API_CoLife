@@ -13,4 +13,7 @@ public interface MaterialRepositoryPort {
     List<MaterialProposal> findAllByActivityId(Long activityId);
 
     void deleteById(Long id);
+
+    /** Marque comme supprimées toutes les propositions de matériel d'une activité (suppression en cascade lors du soft delete de l'activité). */
+    void softDeleteAllByActivityId(Long activityId);
 }

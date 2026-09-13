@@ -493,6 +493,7 @@ class ActivityUseCaseTest {
         activityUseCase.delete(ORGANIZER_ID, false, ACTIVITY_ID);
 
         verify(subscriptionRepository).deleteAllByActivityId(ACTIVITY_ID);
+        verify(materialRepository).softDeleteAllByActivityId(ACTIVITY_ID);
         verify(activityRepository).softDelete(ACTIVITY_ID);
     }
 

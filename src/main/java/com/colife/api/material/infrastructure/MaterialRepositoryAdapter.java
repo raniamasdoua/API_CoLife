@@ -1,6 +1,7 @@
 package com.colife.api.material.infrastructure;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.colife.api.material.domain.MaterialMapper;
 import com.colife.api.material.domain.MaterialProposal;
@@ -31,7 +32,7 @@ public class MaterialRepositoryAdapter implements MaterialRepositoryPort {
 
     @Override
     public List<MaterialProposal> findAllByActivityId(Long activityId) {
-        return materialJpaRepository.findByActivityIdOrderByCreatedAtAsc(activityId).stream()
+        return materialJpaRepository.findByActivityIdAndDeletedFalseOrderByCreatedAtAsc(activityId).stream()
                 .map(MaterialMapper::toDomain)
                 .toList();
     }
@@ -39,5 +40,11 @@ public class MaterialRepositoryAdapter implements MaterialRepositoryPort {
     @Override
     public void deleteById(Long id) {
         materialJpaRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public void softDeleteAllByActivityId(Long activityId) {
+        materialJpaRepository.softDeleteAllByActivityId(activityId);
     }
 }

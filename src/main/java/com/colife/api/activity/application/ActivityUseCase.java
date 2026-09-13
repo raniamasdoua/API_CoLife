@@ -419,6 +419,7 @@ public class ActivityUseCase {
         }
 
         subscriptionRepository.deleteAllByActivityId(activityId);
+        materialRepository.softDeleteAllByActivityId(activityId);
         activityRepository.softDelete(activityId);
     }
 
